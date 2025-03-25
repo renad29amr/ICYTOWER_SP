@@ -1,0 +1,103 @@
+#include <SFML/Graphics.hpp>
+#include<Vector>
+#include <random>  
+using namespace sf;
+using namespace std;
+int Xleft , Xright ;
+float blockWidth = 180.0f;
+float blockHeight = 35.0f;
+float xscale  ;
+const int blocksNum = 80;
+struct BLOCKS
+{
+    Sprite blocksSprite;
+    BLOCKS(Texture& texblocks, float xposition, float yposition)
+    {
+        xscale = (rand() % 2 ) +1.5;
+        blocksSprite.setTexture(texblocks);
+        blocksSprite.setPosition(xposition, yposition);
+        blocksSprite.setScale(xscale, 1);
+    }
+};
+    
+vector <BLOCKS> blocksList;
+void generationBlocks(Texture& texblocks)
+{
+    float xposition, yposition = 1000 - 375; // 375 is the height of the ground
+
+    for (int i = 0; i < blocksNum; i++)
+    {
+        
+        yposition -= 150 + (rand() % 60);    //  blocks بنغير المسافه بين ال 
+        float xposition = (rand() % (Xright - Xleft + 1)) + Xleft;
+        blocksList.emplace_back(texblocks, xposition, yposition);
+
+    }
+
+}
+
+
+int main()
+{    
+ 
+
+    RenderWindow window(VideoMode(1000, 1000), "Welcome!");
+    Texture texbackground;
+    texbackground.loadFromFile("background.jpg");
+    Sprite background;
+    background.setTexture(texbackground);
+    background.setScale(static_cast<float>(window.getSize().x) / texbackground.getSize().x,
+     static_cast<float>(window.getSize().y) / texbackground.getSize().y);
+   
+    Texture texwallleft;
+    texwallleft.loadFromFile("wall2.png");
+    Sprite wallleft;
+    wallleft.setTexture(texwallleft);
+    wallleft.setPosition(880, 0);
+    wallleft.setScale(1.5, 3);
+    Xleft = wallleft.getGlobalBounds().width ;
+
+    Texture texwallright;
+    texwallright.loadFromFile("wall.png");
+    Sprite wallright;
+    wallright.setTexture(texwallright);
+    wallright.setPosition(0, 0);
+    wallright.setScale(1.5, 3);
+    Xright = wallright.getGlobalBounds().width + 450 ;
+
+    Texture texground;
+    texground.loadFromFile("ground.jpg");
+    Sprite ground;
+    ground.setTexture(texground);
+    ground.setPosition(-50, 800);
+    ground.setScale(1.5, 1.5);
+
+    // background.setPosition(0, 0);  ???
+    Texture texblocks;
+    texblocks.loadFromFile("block1.png");
+    
+    random_device rd; // More random seed
+    srand(rd());
+    generationBlocks(texblocks);
+    while (window.isOpen())
+    {
+        Event event;
+        while (window.pollEvent(event))
+        {
+            if (event.type == Event::Closed)
+                window.close();
+        }
+
+        window.clear();
+        window.draw(background);
+        for (auto& block : blocksList)
+        {
+            window.draw(block.blocksSprite);
+        }
+        window.draw(ground);
+        window.draw(wallright);
+        window.draw(wallleft);
+        window.display();
+
+    }
+}
