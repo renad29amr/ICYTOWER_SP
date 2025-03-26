@@ -7,8 +7,8 @@ using namespace sf;
 const int WIDTH = 1000;
 const int HEIGHT = 1000;
 const float  moveSpeed = 200.0f;
-const float jump_strength = -1500.0f;
-const float gravity = 2500.0f;
+const float jump_strength = -5000.0f;
+const float gravity = 25000.0f;
 bool isGround = false;
 bool once = true;
 
@@ -39,7 +39,7 @@ struct Players {
         sprite.setTexture(tex_player);
         sprite.setTextureRect(IntRect(0, 0, 42, 71)); // Crop sprite
         sprite.setOrigin(21, 71);
-        sprite.setPosition(500,650);
+        sprite.setPosition(500, 650);
         sprite.setScale(2.4f, 2.4f);
     }
 
@@ -47,14 +47,14 @@ struct Players {
 
         if (Keyboard::isKeyPressed(Keyboard::Right)) {
             sprite.setScale(2.4, 2.4);
-            velocity_x = moveSpeed*deltatime;
+            velocity_x = moveSpeed * deltatime;
             sprite.setTextureRect(IntRect(frameIndex * 37, 0, 42, 71));
             frameIndex++;
             frameIndex = frameIndex % 4;
         }
         else if (Keyboard::isKeyPressed(Keyboard::Left)) {
             sprite.setScale(-2.4, 2.4);
-            velocity_x = -moveSpeed*deltatime;
+            velocity_x = -moveSpeed * deltatime;
             sprite.setTextureRect(IntRect(frameIndex * 37, 0, 42, 71));
             frameIndex++;
             frameIndex = frameIndex % 4;
@@ -68,12 +68,11 @@ struct Players {
 
     void jump(float deltatime) {
         if (Keyboard::isKeyPressed(Keyboard::Space) && once) {
-
+            frameIndex = 5;
             sprite.setScale(2.4, 2.4);
             sprite.setTextureRect(IntRect(frameIndex * 37, 0, 42, 71));
 
             if (isGround) {
-                frameIndex = 5;
                 velocity_y = jump_strength;  // Apply jump strength
                 isGround = false;       // Player is no longer grounded
                 once = false;
@@ -124,12 +123,13 @@ void draw(RenderWindow& window, Players& player) {
 int main() {
     RenderWindow window(VideoMode(WIDTH, HEIGHT), "Icy Tower SFML");
 
+    window.setFramerateLimit(60);
+
     initializeObject(window);
     Players player;
     Clock clock;
 
     player.sprite.setOrigin(player.sprite.getLocalBounds().width / 2, 0);
-
 
     while (window.isOpen()) {
         // Calculate delta time
@@ -142,16 +142,17 @@ int main() {
             }
         }
 
-        
-
         //Collision detection with the ground
         if (player.sprite.getGlobalBounds().intersects(ground.getGlobalBounds())) {
             player.sprite.setPosition(player.sprite.getPosition().x, ground.getPosition().y + 15 - player.sprite.getGlobalBounds().height);  // Position on the ground
             isGround = true;
+
             player.velocity_y = 0;
             once = true;
         }
 
+        // previnting player from getting outside the window
+        
         //Collision detection with the left wall
         if (player.sprite.getGlobalBounds().intersects(wall.getGlobalBounds())) {
             player.sprite.setPosition(wall.getGlobalBounds().left + wall.getGlobalBounds().width + 50, player.sprite.getPosition().y);  // Position on the wall
@@ -165,12 +166,13 @@ int main() {
         }
 
         player.jump(deltatime);
+
         if (!isGround) {
             player.velocity_y += gravity * deltatime;
-            player.frameIndex = 0;
-            player.sprite.setTextureRect(IntRect(player.frameIndex * 39, 0, 42, 71));
+            player.frameIndex = 5;
+            player.sprite.setTextureRect(IntRect(player.frameIndex * 37, 0, 42, 71));
         }
-        player.sprite.move(player.velocity_x,player. velocity_y*deltatime);
+        player.sprite.move(player.velocity_x*deltatime, player.velocity_y * deltatime);
         player.handleMovement(deltatime);
 
         window.clear();
