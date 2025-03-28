@@ -25,10 +25,10 @@ bool once = true;
 
 // Textures
 Texture tex_background, tex_ground, tex_wall_right, tex_wall_left, tex_player
-    ,tex_blocks;;
+, tex_blocks;;
 
 // Sprites
-Sprite background, ground, wall, wall2 ;
+Sprite background, ground, wall, wall2;
 
 // Blocks struct
 struct BLOCKS
@@ -36,7 +36,7 @@ struct BLOCKS
     Sprite blocksSprite;
     BLOCKS(Texture& texblocks, float xposition, float yposition)
     {
-       
+
         xscale = (rand() % 2) + 1.5;
         blocksSprite.setTexture(texblocks);
         blocksSprite.setPosition(xposition, yposition);
@@ -46,7 +46,7 @@ struct BLOCKS
 
 
 // Player Struct
-struct Players 
+struct Players
 {
     Sprite sprite;
     float velocity_x;
@@ -54,7 +54,7 @@ struct Players
     int frameIndex;
     float frameTimer;
 
-    Players() 
+    Players()
     {
         velocity_x = 0;
         velocity_y = 0;
@@ -76,34 +76,34 @@ struct Players
     void handleMovement(float deltatime) {
         frameTimer += deltatime; // Accumulate time
 
-        if (Keyboard::isKeyPressed(Keyboard::Right)) 
+        if (Keyboard::isKeyPressed(Keyboard::Right))
         {
             sprite.setScale(2.4, 2.4);
             velocity_x = moveSpeed;
 
-            if (frameTimer >= 0.1f) 
+            if (frameTimer >= 0.1f)
             {
                 frameIndex = (frameIndex + 1) % 4;
                 frameTimer = 0;
             }
             sprite.setTextureRect(IntRect(frameIndex * 37, 0, 42, 71));
         }
-        else if (Keyboard::isKeyPressed(Keyboard::Left)) 
+        else if (Keyboard::isKeyPressed(Keyboard::Left))
         {
             sprite.setScale(-2.4, 2.4);
             velocity_x = -moveSpeed;
 
-            if (frameTimer >= 0.1f) 
+            if (frameTimer >= 0.1f)
             {
                 frameIndex = (frameIndex + 1) % 4;
                 frameTimer = 0;
             }
             sprite.setTextureRect(IntRect(frameIndex * 37, 0, 42, 71));
         }
-        else 
+        else
         {
             velocity_x = 0;
-            if (isGround) 
+            if (isGround)
             {
                 frameIndex = 0;
                 sprite.setTextureRect(IntRect(0, 0, 42, 71));
@@ -113,9 +113,9 @@ struct Players
         sprite.move(velocity_x * deltatime, 0);
     }
 
-    void jump(float deltatime) 
+    void jump(float deltatime)
     {
-        if (Keyboard::isKeyPressed(Keyboard::Space) && once && isGround) 
+        if (Keyboard::isKeyPressed(Keyboard::Space) && once && isGround)
         {
             velocity_y = jump_strength;
             isGround = false;
@@ -124,15 +124,16 @@ struct Players
 
         if (!isGround)
         {
-            frameIndex = 5; // Jump frame
-            sprite.setTextureRect(IntRect(frameIndex * 37, 0, 42, 71));
+            velocity_y += gravity * deltatime;
+            frameIndex = 5;
+          sprite.setTextureRect(IntRect(frameIndex * 37, 0, 42, 71));
         }
     }
 };
 
 
 
-void initializeObject(RenderWindow& window) 
+void initializeObject(RenderWindow& window)
 {
     // Load textures
     if (!tex_background.loadFromFile("background.jpg")) return;
@@ -181,7 +182,7 @@ void generationBlocks(Texture& texblocks, vector<BLOCKS>& blocksList)
 }
 
 
-void draw(RenderWindow& window, Players& player, vector<BLOCKS>& blocksList) 
+void draw(RenderWindow& window, Players& player, vector<BLOCKS>& blocksList)
 {
     window.draw(background);
     for (auto& block : blocksList)
@@ -209,24 +210,24 @@ int main()
 
     random_device rd; // more than one 
     srand(rd());
-    generationBlocks(tex_blocks,blocksList);
+    generationBlocks(tex_blocks, blocksList);
 
 
-    while (window.isOpen()) 
+    while (window.isOpen())
     {
         float deltatime = clock.restart().asSeconds();
 
         Event event;
         while (window.pollEvent(event))
         {
-            if (event.type == sf::Event::Closed) 
+            if (event.type == sf::Event::Closed)
             {
                 window.close();
             }
         }
 
         //Collision detection with the ground
-        if (player.sprite.getGlobalBounds().intersects(ground.getGlobalBounds())) 
+        if (player.sprite.getGlobalBounds().intersects(ground.getGlobalBounds()))
         {
             player.sprite.setPosition(player.sprite.getPosition().x, ground.getPosition().y + 15 - player.sprite.getGlobalBounds().height);
             isGround = true;
@@ -250,7 +251,7 @@ int main()
         }
 
         //Collision detection with the right wall
-        else if (player.sprite.getGlobalBounds().intersects(wall2.getGlobalBounds())) 
+        else if (player.sprite.getGlobalBounds().intersects(wall2.getGlobalBounds()))
         {
             player.sprite.setPosition(wall2.getGlobalBounds().left - player.sprite.getGlobalBounds().width + 50, player.sprite.getPosition().y);  // Position on the wall
             player.velocity_x = 0;
@@ -261,12 +262,12 @@ int main()
             if (player.sprite.getGlobalBounds().intersects(block.blocksSprite.getGlobalBounds())) {
                 // Check if the player is falling onto the block
                 if (player.velocity_y > 0 &&
-                    (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height -50
+                    (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height - 50
                         <= block.blocksSprite.getPosition().y)) {
 
                     // Place player on top of the block
                     player.sprite.setPosition(player.sprite.getPosition().x,
-                        block.blocksSprite.getPosition().y - player.sprite.getGlobalBounds().height +12);
+                        block.blocksSprite.getPosition().y - player.sprite.getGlobalBounds().height + 12);
 
                     // Stop falling
                     isGround = true;
@@ -278,17 +279,12 @@ int main()
 
         player.jump(deltatime);
 
-        if (!isGround) 
-        {
-            player.velocity_y += gravity * deltatime;
-            player.frameIndex = 5;
-            player.sprite.setTextureRect(IntRect(player.frameIndex * 37, 0, 42, 71));
-        }
+        
         player.sprite.move(player.velocity_x * deltatime, player.velocity_y * deltatime);
         player.handleMovement(deltatime);
 
         window.clear();
-        draw(window, player,blocksList);
+        draw(window, player, blocksList);
         window.display();
     }
 }
