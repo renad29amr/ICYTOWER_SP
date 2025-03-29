@@ -1,4 +1,3 @@
-
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
 #include <iostream>
@@ -71,7 +70,7 @@ struct Players
         }
 
         sprite.setTexture(tex_player);
-        sprite.setTextureRect(IntRect(0, 0, 42, 71));
+        sprite.setTextureRect(IntRect(0, 0, 38, 71));
         sprite.setOrigin(21, 71);
         sprite.setPosition(500, 650);
         sprite.setScale(2.4f, 2.4f);
@@ -90,7 +89,7 @@ struct Players
                 frameIndex = (frameIndex + 1) % 4;
                 frameTimer = 0;
             }
-            sprite.setTextureRect(IntRect(frameIndex * 37, 0, 42, 71));
+            sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
         }
         else if (Keyboard::isKeyPressed(Keyboard::Left))
         {
@@ -102,7 +101,7 @@ struct Players
                 frameIndex = (frameIndex + 1) % 4;
                 frameTimer = 0;
             }
-            sprite.setTextureRect(IntRect(frameIndex * 37, 0, 42, 71));
+            sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
         }
         else
         {
@@ -110,7 +109,7 @@ struct Players
             if (isGround)
             {
                 frameIndex = 0;
-                sprite.setTextureRect(IntRect(0, 0, 42, 71));
+                sprite.setTextureRect(IntRect(0, 0, 38, 71));
             }
         }
 
@@ -130,25 +129,25 @@ struct Players
         {
             velocity_y += gravity * deltatime;
             frameIndex = 5;
-            sprite.setTextureRect(IntRect(frameIndex * 37, 0, 42, 71));
+            sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
 
             if (velocity_x > 0)
             {
                 frameIndex = 6;
-                sprite.setTextureRect(IntRect(frameIndex * 37, 0, 42, 71));
+                sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
             }
 
             if (velocity_x < 0)
             {
                 frameIndex = 6;
-                sprite.setTextureRect(IntRect(frameIndex * -37, 0, 42, 71));
+                sprite.setTextureRect(IntRect(frameIndex * -38, 0, 38, 71));
             }
         }
 
         if (velocity_y > 0)
         {
             frameIndex = 8;
-            sprite.setTextureRect(IntRect(frameIndex * 37, 0, 42, 71));
+            sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
         }
     }
 };
@@ -237,7 +236,7 @@ void draw(RenderWindow& window, Players& player, vector<BLOCKS>& blocksList)
 
 int main()
 {
-    
+
     RenderWindow window(VideoMode(WIDTH, HEIGHT), "Icy Tower SFML");
 
     window.setFramerateLimit(60);
