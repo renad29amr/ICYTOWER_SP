@@ -33,10 +33,10 @@ bool isMovingright = 0;
 bool startGame = false;
 
 // Textures
-Texture tex_background, tex_ground, tex_wall_right, tex_wall_left, tex_player, tex_blocks, tex_interface;
+Texture tex_background, tex_ground, tex_wall_right, tex_wall_left, tex_player, tex_blocks, tex_interface,tex_hand;
 
 // Sprites
-Sprite background, ground, wall, wall2, interface;
+Sprite background, ground, wall, wall2, interface,hand;
 
 
 
@@ -213,7 +213,13 @@ void initializeObject(RenderWindow& window)
     if (!tex_player.loadFromFile("player.png")) return;
     if (!tex_blocks.loadFromFile("block.png")) return;
     if (!tex_interface.loadFromFile("mainMenu.png")) return;
+    if (!tex_hand.loadFromFile("hand.png")) return;
     
+
+
+    hand.setTexture(tex_hand);
+    hand.setPosition(500, 615);
+    hand.setScale(1.5, 1.5);
 
     interface.setTexture(tex_interface);
     interface.setScale(static_cast<float>(window.getSize().x) / tex_background.getSize().x,
@@ -308,7 +314,9 @@ int main()
 
     //bool inMenu = true;
     menuSelection = 0; // Start with "START" selected
-    while (window.isOpen() ) //&& inMenu
+    bool isPressed = false; // To track if a key is being held
+
+    while (window.isOpen())
     {
         Event event;
         while (window.pollEvent(event))
@@ -318,22 +326,27 @@ int main()
                 window.close();
             }
 
-            if (event.type == Event::KeyPressed)
+            if (event.type == Event::KeyPressed && !isPressed)
             {
+                isPressed = true;
+
                 if (event.key.code == Keyboard::Up)
                 {
-                    menuSelection = (menuSelection - 1 + 2) % 2; // Move up
+                    menuSelection = (menuSelection - 1 + 2) % 2;
+                    hand.setPosition(500, 620 + 50 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Down)
                 {
-                    menuSelection = (menuSelection + 1) % 2; // Move down
+                    menuSelection = (menuSelection + 1) % 2;
+                    hand.setPosition(500, 620 + 50 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Enter)
                 {
                     if (menuSelection == 0)
                     {
                         goto start_game;
-                       // inMenu = false; // Start game
                     }
                     else if (menuSelection == 1)
                     {
@@ -341,23 +354,30 @@ int main()
                     }
                 }
             }
+
+            if (event.type == Event::KeyReleased)
+            {
+                isPressed = false;
+            }
         }
 
-        // Visual feedback for selection
+
         text_start.setFillColor(menuSelection == 0 ? Color::Red : Color::Black);
         text_start.setOutlineColor(menuSelection == 0 ? Color::Yellow : Color::Transparent);
         text_start.setOutlineThickness(menuSelection == 0 ? 2 : 0);
+
         text_exit.setFillColor(menuSelection == 1 ? Color::Red : Color::Black);
         text_exit.setOutlineColor(menuSelection == 1 ? Color::Yellow : Color::Transparent);
         text_exit.setOutlineThickness(menuSelection == 1 ? 2 : 0);
 
-        // Draw menu
         window.clear();
         window.draw(interface);
         window.draw(text_start);
         window.draw(text_exit);
+        window.draw(hand);
         window.display();
     }
+
     
 
     start_game:
@@ -473,7 +493,8 @@ int main()
         player.jump(deltatime);
 
         player.sprite.move(player.velocity_x * deltatime, player.velocity_y * deltatime);
-        player.handleMovement(deltatime);
+        player.handleMovement(deltatime);      
+
 
         window.clear();
         
