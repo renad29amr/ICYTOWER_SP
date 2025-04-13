@@ -358,54 +358,7 @@ int main()
         window.draw(text_exit);
         window.display();
     }
-    //// Main loop for the start screen
-    //while (window.isOpen()) {
-    //    sf::Event event;
-    //    while (window.pollEvent(event)) {
-    //        if (event.type == sf::Event::Closed) {
-    //            window.close();
-    //        }
-
-    //        if (event.type == Event::KeyPressed && event.key.code == Keyboard::Enter) {
-    //            startGame = !startGame; // Toggle pause state
-    //        }
-
-    //        if (startGame) {
-    //            // Handle menu navigation
-    //            if (event.type == Event::KeyPressed) {
-
-    //                if (event.key.code == Keyboard::Up) {
-    //                    menuSelection = (menuSelection - 1 + 2) % 2; // Move up
-    //                }
-    //                if (event.key.code == Keyboard::Down) {
-    //                    menuSelection = (menuSelection + 1) % 2; // Move down
-    //                }
-    //                if (event.key.code == Keyboard::Enter) {
-    //                    if (menuSelection == 0) {
-    //                        // Resume game
-    //                        text_start.setFillColor(Color::Red);
-    //                        text_exit.setFillColor(Color::White);
-    //                        goto start_game;
-    //                        
-
-    //                    }
-    //                    else if (menuSelection == 1) {
-    //                        // Quit game
-    //                        window.close();
-    //                    }
-    //                }
-    //            }
-
-    //        }
-    //    }
-
-    //    // Draw the start screen
-    //    window.clear();
-    //    window.draw(interface);
-    //    window.draw(text_start);
-    //    window.draw(text_exit);
-    //    window.display();
-    //}
+    
 
     start_game:
     Players player;
