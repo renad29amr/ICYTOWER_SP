@@ -104,6 +104,7 @@ struct Players
             }
             sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
         }
+
         else if (Keyboard::isKeyPressed(Keyboard::Left))
         {
             sprite.setScale(-2.4, 2.4);
@@ -117,6 +118,7 @@ struct Players
             }
             sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
         }
+
         else
         {
             velocity_x = 0;
@@ -162,6 +164,7 @@ struct Players
             {
                 velocity_y = maxJumpSpeed;
             }
+
             const float maxFallSpeed = 1000.0f;
             if (velocity_y > maxFallSpeed)
             {
@@ -180,6 +183,7 @@ struct Players
                         sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
                     }
                 }
+
                 else if (isMovingleft)
                 {
                     if (frameIndex != 6)
@@ -189,6 +193,7 @@ struct Players
                         sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
                     }
                 }
+
                 else
                 {
                     if (frameIndex != 5)
@@ -223,15 +228,20 @@ struct BLOCKS
         blocksSprite.setScale(xscale, 1);
     }
     // Update blocks to move with the view
-    void updateBlocks(vector<BLOCKS>& blockslist, Players& player, float deltaTime, View& view) {
+    void updateBlocks(vector<BLOCKS>& blockslist, Players& player, float deltaTime, View& view) 
+    {
 
         // Reposition blocks that move off-screen
-        for (auto& block : blockslist) {
-            if (block.blocksSprite.getPosition().y > HEIGHT) {
+        for (auto& block : blockslist)
+        {
+            if (block.blocksSprite.getPosition().y > HEIGHT)
+            {
                 // Find the topmost block
                 BLOCKS* topMostBlock = &blockslist[0];
-                for (auto& b : blockslist) {
-                    if (b.blocksSprite.getPosition().y < topMostBlock->blocksSprite.getPosition().y) {
+                for (auto& b : blockslist) 
+                {
+                    if (b.blocksSprite.getPosition().y < topMostBlock->blocksSprite.getPosition().y) 
+                    {
                         topMostBlock = &b;
                     }
                 }
@@ -405,6 +415,7 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
             {
                 window.close();
             }
+
             if (event.type == Event::KeyPressed && !isPressed)
             {
                 isPressed = true;
@@ -414,12 +425,14 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
                     menuSelection = (menuSelection - 1 + 3) % 3;
                     hand.setPosition(220, 240 + 100 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Down)
                 {
                     menu_change.play();
                     menuSelection = (menuSelection + 1) % 3;
                     hand.setPosition(220, 240 + 100 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Enter)
                 {
                     menu_choose.play();
@@ -429,6 +442,7 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
                     }
                 }
             }
+
             if (event.type == Event::KeyReleased)
             {
                 isPressed = false;
@@ -446,6 +460,7 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
                 menu_choose.setVolume(soundsVolume);
                 jump_sound.setVolume(soundsVolume);
             }
+
             if (Keyboard::isKeyPressed(Keyboard::Right))
             {
                 soundsVolume = min(100, soundsVolume + 1);
@@ -456,6 +471,7 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
                 jump_sound.setVolume(soundsVolume);
             }
         }
+
         else if (menuSelection == 1) // ---> Music
         {
             if (Keyboard::isKeyPressed(Keyboard::Left))
@@ -464,6 +480,7 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
                 musicSliderKnob.setPosition(500 + (musicVolume / 100.0f) * sliderBarWidth - 7, 365);
                 background_music.setVolume(musicVolume); // update music volume
             }
+
             if (Keyboard::isKeyPressed(Keyboard::Right))
             {
                 musicVolume = min(100, musicVolume + 1);
@@ -509,7 +526,6 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
     int menuSelection = 0;
     bool isPressed = false;
 
-
     hand.setPosition(500, 615);
 
     Font nameFont;
@@ -526,7 +542,22 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
     displayText.setFillColor(sf::Color::White);
     displayText.setPosition(50, 850);
 
+    Text error;
+    error.setFont(font);
+    error.setCharacterSize(30);
+    error.setFillColor(sf::Color::Red);
+    error.setPosition(50, 900);
+    error.setString(""); // Initially empty
+
     string userName = "";
+
+    // Cursor setup
+    Text cursor("|", nameFont);
+    cursor.setCharacterSize(25);
+    cursor.setFillColor(sf::Color::Black);
+    cursor.setPosition(displayName.getPosition().x, displayName.getPosition().y + 2); // Initial position
+    bool showCursor = true; // Toggle for blinking effect
+    sf::Clock cursorClock; // Clock to control blinking
 
     while (window.isOpen())
     {
@@ -546,27 +577,37 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
                     {
                         userName.pop_back();
                     }
+
                     else if (event.text.unicode < 128 && event.text.unicode != '\r')
                     {
                         userName += static_cast<char>(event.text.unicode);
                     }
                 }
-                //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-                myFile.open("user_data.txt", ios::out);//write
 
+                myFile.open("user_data.txt", ios::out); // Write to file
                 if (myFile.is_open())
                 {
                     myFile << userName << " : ";
                     myFile.close();
                 }
 
-                displayText.setString("Welcome " + userName);
+                displayText.setString("Welcome " + userName + " :)");
+
                 if (event.type == Event::KeyPressed && event.key.code == Keyboard::Enter)
                 {
-                    showMenu = true;
+                    if (userName.empty())
+                    {
+                        // Display error message if name is empty
+                        error.setString("You must enter your name!");
+                    }
+
+                    else
+                    {
+                        showMenu = true; // Proceed to the menu
+                        error.setString(""); // Clear error message
+                    }
                 }
             }
-
             else
             {
                 if (event.type == Event::KeyPressed && !isPressed)
@@ -579,18 +620,19 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
                         menuSelection = (menuSelection - 1 + 3) % 3;
                         hand.setPosition(500, 620 + 50 * menuSelection);
                     }
+
                     if (event.key.code == Keyboard::Down)
                     {
                         menu_change.play();
                         menuSelection = (menuSelection + 1) % 3;
                         hand.setPosition(500, 620 + 50 * menuSelection);
                     }
+
                     if (event.key.code == Keyboard::Enter)
                     {
                         menu_choose.play();
 
                         if (menuSelection == 0)
-
                             return true;
 
                         if (menuSelection == 1)
@@ -598,6 +640,7 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
                             pause_menu.setPosition(150, 200);
                             soundOptions(window, hand, font, menu_change, menu_choose, background_music);
                         }
+
                         else if (menuSelection == 2)
                         {
                             window.close();
@@ -611,12 +654,29 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
                 }
             }
         }
+
+        // Update cursor blinking logic
+        if (cursorClock.getElapsedTime().asSeconds() > 0.5f) // Blink every 0.5 seconds
+        {
+            showCursor = !showCursor;
+            cursorClock.restart();
+        }
+
+        float cursorX = displayName.getPosition().x + displayName.getLocalBounds().width;
+        cursor.setPosition(cursorX, displayName.getPosition().y + 2);
+
         window.setView(window.getDefaultView());
         window.clear();
         window.draw(interface);
         window.draw(enterName);
         displayName.setString(userName);
         window.draw(displayName);
+
+        if (!showMenu && showCursor)
+        {
+            window.draw(cursor);
+        }
+
         heads(window, tex_heads, head);
 
         if (showMenu)
@@ -643,6 +703,14 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
             window.draw(hand);
             heads(window, tex_heads, head);
             window.draw(displayText);
+        }
+        else
+        {
+            // Draw error message if it exists
+            if (!error.getString().isEmpty())
+            {
+                window.draw(error);
+            }
         }
 
         window.display();
@@ -693,6 +761,7 @@ bool pauseMenu(RenderWindow& window, Players& player, Sprite interface, Sprite h
             {
                 window.close();
             }
+
             if (event.type == Event::KeyPressed && !isPressed)
             {
                 isPressed = true;
@@ -702,12 +771,14 @@ bool pauseMenu(RenderWindow& window, Players& player, Sprite interface, Sprite h
                     menuSelection = (menuSelection - 1 + 4) % 4;
                     hand.setPosition(310, 240 + 100 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Down)
                 {
                     menu_change.play();
                     menuSelection = (menuSelection + 1) % 4;
                     hand.setPosition(310, 240 + 100 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Enter)
                 {
                     menu_choose.play();
@@ -715,17 +786,20 @@ bool pauseMenu(RenderWindow& window, Players& player, Sprite interface, Sprite h
                     {
                         return true;
                     }
+
                     else if (menuSelection == 1) // ---> Play Again
                     {
                         reset(window, player, blocksList, score, floors, Score);
                         return true;
 
                     }
+
                     else if (menuSelection == 2) // ---> Sound
                     {
                         soundOptions(window, hand, font, menu_change, menu_choose, background_music);
 
                     }
+
                     else if (menuSelection == 3) // ---> Exit to Main Menu
                     {
                         reset(window, player, blocksList, score, floors, Score);
@@ -733,6 +807,7 @@ bool pauseMenu(RenderWindow& window, Players& player, Sprite interface, Sprite h
                     }
                 }
             }
+
             if (event.type == Event::KeyReleased)
             {
                 isPressed = false;
@@ -793,6 +868,7 @@ bool gameOver(RenderWindow& window, Players& player, Sprite hand, Texture& tex_g
             {
                 window.close();
             }
+
             if (event.type == Event::KeyPressed && !isPressed)
             {
                 isPressed = true;
@@ -802,12 +878,14 @@ bool gameOver(RenderWindow& window, Players& player, Sprite hand, Texture& tex_g
                     menuSelection = (menuSelection - 1 + 2) % 2;
                     hand.setPosition(300, 500 + 100 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Down)
                 {
                     menu_change.play();
                     menuSelection = (menuSelection + 1) % 2;
                     hand.setPosition(300, 500 + 100 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Enter)
                 {
                     if (menuSelection == 0) // ---> Play Again
@@ -815,6 +893,7 @@ bool gameOver(RenderWindow& window, Players& player, Sprite hand, Texture& tex_g
                         reset(window, player, blocksList, score, floors, Score);
                         return true;
                     }
+
                     else if (menuSelection == 1) // ---> Exit to Main Menu
                     {
                         reset(window, player, blocksList, score, floors, Score);
@@ -822,6 +901,7 @@ bool gameOver(RenderWindow& window, Players& player, Sprite hand, Texture& tex_g
                     }
                 }
             }
+
             if (event.type == Event::KeyReleased)
             {
                 isPressed = false;
@@ -866,8 +946,6 @@ void draw(RenderWindow& window, Players& player, vector<BLOCKS>& blocksList, Tex
     window.draw(background);
     window.draw(wall);
     window.draw(wall2);
-
-
 
     for (auto& block : blocksList)
     {
@@ -953,7 +1031,6 @@ int main()
 
             if (Keyboard::isKeyPressed(Keyboard::Escape) || Keyboard::isKeyPressed(Keyboard::P))
             {
-
                 bool resumeGame = pauseMenu(window, player, interface, hand, font, text_sound, text_exit, text_start, blocksList, text_play_again, Score);
                 if (!resumeGame)
                 {
