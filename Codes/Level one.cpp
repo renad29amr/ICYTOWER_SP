@@ -16,21 +16,18 @@ const int HEIGHT = 1000;
 const float moveSpeed = 200.0f;
 const float jump_strength = -10000.0f;
 const float gravity = 25000.0f;
-Clock viewtimer;
 const float VIEW_PAUSE_DURATION = 0.01;
-
-RenderWindow window(VideoMode(WIDTH, HEIGHT), "Icy Tower SFML");
+Clock viewtimer;
 
 //---->blocks constants<----
 int Xleft, Xright;
+int score = 0;
+int floors = 0;
 float blockWidth = 180.0f;
 float blockHeight = 35.0f;
 float xscale;
-const int blocksNum = 10;
-
 float lastPosition;
-int score = 0;
-int floors = 0;
+const int blocksNum = 10;
 
 //---->booleans<----
 bool isGround = false;
@@ -41,6 +38,8 @@ bool showMenu = false;
 bool win = false;
 bool viewpaused = false;
 bool showHighscore = false;
+
+RenderWindow window(VideoMode(WIDTH, HEIGHT), "Icy Tower SFML");
 
 // Textures
 Texture tex_background, tex_ground, tex_wall_right, tex_wall_left, tex_player, tex_blocks, tex_interface, tex_hand, tex_pauseMenu, tex_heads, tex_gameover, tex_enterName, tex_winner, tex_newstage, tex_highscore;
@@ -103,6 +102,7 @@ struct Players
             }
             sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
         }
+
         else if (Keyboard::isKeyPressed(Keyboard::Left))
         {
             sprite.setScale(-2.4, 2.4);
@@ -116,6 +116,7 @@ struct Players
             }
             sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
         }
+
         else
         {
             velocity_x = 0;
@@ -148,6 +149,7 @@ struct Players
         {
             jumpTimer += deltatime;
 
+            // Apply upward force gradually for a short duration
             if (jumpTimer < maxJumpTime && Keyboard::isKeyPressed(Keyboard::Space))
             {
                 velocity_y += jumpAcceleration * deltatime;
@@ -155,6 +157,7 @@ struct Players
 
             velocity_y += gravity * deltatime;
 
+            // Apply max jump speed to avoid too strong jumps
             const float maxJumpSpeed = -1200.0f;
             if (velocity_y < maxJumpSpeed)
             {
@@ -167,6 +170,7 @@ struct Players
                 velocity_y = maxFallSpeed;
             }
 
+            // Set jump animations only when needed
             if (velocity_y < 0)
             {
                 if (isMovingright)
@@ -178,6 +182,7 @@ struct Players
                         sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
                     }
                 }
+
                 else if (isMovingleft)
                 {
                     if (frameIndex != 6)
@@ -187,7 +192,8 @@ struct Players
                         sprite.setTextureRect(IntRect(frameIndex * 38, 0, 38, 71));
                     }
                 }
-                else
+
+                else // Falling
                 {
                     if (frameIndex != 5)
                     {
@@ -213,6 +219,7 @@ struct BLOCKS
 {
     vector<BLOCKS> blockslist;
     Sprite blocksSprite;
+
     BLOCKS(Texture& texblocks, float xposition, float yposition)
     {
         xscale = (rand() % 2) + 1.5;
@@ -221,12 +228,15 @@ struct BLOCKS
         blocksSprite.setScale(xscale, 1);
     }
 
+    // Update blocks to move with the view
     void updateBlocks(vector<BLOCKS>& blockslist, Players& player, float deltaTime, View& view)
     {
+        // Reposition blocks that move off-screen
         for (auto& block : blockslist)
         {
             if (block.blocksSprite.getPosition().y > HEIGHT)
             {
+                // Find the topmost block
                 BLOCKS* topMostBlock = &blockslist[0];
                 for (auto& b : blockslist)
                 {
@@ -235,6 +245,8 @@ struct BLOCKS
                         topMostBlock = &b;
                     }
                 }
+
+                // Reposition the block above the topmost block
                 float newX = (rand() % (Xright - Xleft + 1)) + Xleft;
                 float newY = topMostBlock->blocksSprite.getPosition().y - 150 - (rand() % 60);
                 block.blocksSprite.setPosition(newX, newY);
@@ -243,12 +255,120 @@ struct BLOCKS
     }
 } plateform(tex_blocks, 360, 250);
 
+// User struct
+struct User
+{
+    string user_name;
+    int user_score;
+};
+
+// Declare an array to store user data with a fixed size
+const int MAX_USERS = 100; // Maximum number of users
+User user_arr[MAX_USERS];
+int user_count = 0; // Tracks number of users in the array
+
+// Function to load user data from file
+void loadUserData()
+{
+    ifstream myFile("user_data.txt");
+    if (!myFile.is_open())
+    {
+        cout << "No existing score file found. Creating a new one." << endl;
+        return;
+    }
+
+    string name;
+    int score;
+
+    while (myFile >> name >> score)
+    {
+        if (!name.empty() && user_count < MAX_USERS)
+        {
+            user_arr[user_count] = { name, score };
+            user_count++;
+        }
+    }
+    myFile.close();
+}
+
+// Function to save user data to file
+void saveUserData()
+{
+    // Sort the user_arr array by user_score in descending order
+    sort(user_arr, user_arr + user_count, [](const User& a, const User& b)
+        {
+            return a.user_score > b.user_score; // Sort in descending order
+        });
+
+    // Open the file for writing
+    ofstream myFile("user_data.txt");
+
+    if (!myFile.is_open())
+    {
+        cout << "Error: Unable to open score file for writing." << endl;
+        return;
+    }
+
+    // Write the sorted data to the file
+    for (int i = 0; i < user_count; i++)
+    {
+        myFile << user_arr[i].user_name << " " << user_arr[i].user_score << endl;
+    }
+
+    // Close the file
+    myFile.close();
+}
+
+// Function to update or add user score
+void updateOrAddUserScore(const string& name, int score)
+{
+    if (name.empty())
+    {
+        cout << "Error: Username cannot be empty." << endl;
+        return;
+    }
+
+    bool userExists = false;
+
+    for (int i = 0; i < user_count; i++)
+    {
+        if (user_arr[i].user_name == name)
+        {
+            userExists = true;
+            if (score > user_arr[i].user_score)
+            {
+                user_arr[i].user_score = score;
+            }
+            return;
+        }
+    }
+
+    if (!userExists && user_count < MAX_USERS) {
+        user_arr[user_count] = { name, score };
+        user_count++;
+    }
+
+}
+
+// Copy user data
+string copyUserScoreString()
+{
+    stringstream ss;
+
+    for (int i = 0; i < user_count; i++)
+    {
+        ss << i + 1 << ". " << user_arr[i].user_name << " - " << user_arr[i].user_score << "\n";
+    }
+
+    return ss.str();
+}
+
 void generationBlocks(Texture& texblocks, vector<BLOCKS>& blockslist, Players& player)
 {
     float x, y = HEIGHT - 200;
     for (int i = 0; i < blocksNum; i++)
     {
-        y -= 200 + (rand() % 100);
+        y -= 200 + (rand() % 100); //  changing distance between blocks
         float x = (rand() % (Xright - Xleft + 1)) + Xleft;
         blockslist.push_back(BLOCKS(texblocks, x, y));
     }
@@ -256,6 +376,7 @@ void generationBlocks(Texture& texblocks, vector<BLOCKS>& blockslist, Players& p
 
 void initializeObject(RenderWindow& window)
 {
+    // load textures
     if (!tex_background.loadFromFile("background.jpg")) return;
     if (!tex_ground.loadFromFile("ground.jpg")) return;
     if (!tex_wall_left.loadFromFile("wall left.png")) return;
@@ -278,6 +399,7 @@ void initializeObject(RenderWindow& window)
     if (!buffer_sound_cheer.loadFromFile("sound_cheer.opus")) return;
     if (!background_music.openFromFile("backgroundMusic.wav")) return;
 
+    //Sounds
     menu_choose.setBuffer(buffer_menu_choose);
     menu_change.setBuffer(buffer_menu_change);
     jump_sound.setBuffer(buffer_jump);
@@ -360,9 +482,11 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
     bool isPressed = false;
     hand.setPosition(220, 240);
 
+    // Volume levels (range: 0 to 100)
     int soundsVolume = menu_change.getVolume();
     int musicVolume = background_music.getVolume();
 
+    // Slider dimensions
     float sliderBarWidth = 200.0f;
     float sliderBarHeight = 10.0f;
 
@@ -374,6 +498,7 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
     musicSliderBar.setFillColor(Color::Black);
     musicSliderBar.setPosition(500, 370);
 
+    // Slider knobs
     CircleShape soundsSliderKnob(10);
     soundsSliderKnob.setFillColor(Color::Red);
     soundsSliderKnob.setPosition(500 + (soundsVolume / 100.0f) * sliderBarWidth - 7, 265);
@@ -382,6 +507,7 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
     musicSliderKnob.setFillColor(Color::Red);
     musicSliderKnob.setPosition(500 + (musicVolume / 100.0f) * sliderBarWidth - 7, 365);
 
+    // Menu texts
     Text text_Sounds("SOUNDS", font);
     text_Sounds.setCharacterSize(40);
     text_Sounds.setFillColor(Color::Black);
@@ -425,7 +551,7 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
                 if (event.key.code == Keyboard::Enter)
                 {
                     menu_choose.play();
-                    if (menuSelection == 2)
+                    if (menuSelection == 2) // ---> Back
                     {
                         return false;
                     }
@@ -437,7 +563,7 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
             }
         }
 
-        if (menuSelection == 0)
+        if (menuSelection == 0) // -----> Sound
         {
             if (Keyboard::isKeyPressed(Keyboard::Left))
             {
@@ -460,7 +586,7 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
                 sound_gameover.setVolume(soundsVolume);
             }
         }
-        else if (menuSelection == 1)
+        else if (menuSelection == 1) // ---> Music
         {
             if (Keyboard::isKeyPressed(Keyboard::Left))
             {
@@ -478,12 +604,16 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
 
         background.setPosition(0, 0);
         window.setView(window.getDefaultView());
+
+        // Update text colors based on selection
         text_Sounds.setFillColor(menuSelection == 0 ? Color::Red : Color::Black);
         text_Sounds.setOutlineColor(menuSelection == 0 ? Color::Yellow : Color::Transparent);
         text_Sounds.setOutlineThickness(menuSelection == 0 ? 2 : 0);
+
         text_Music.setFillColor(menuSelection == 1 ? Color::Red : Color::Black);
         text_Music.setOutlineColor(menuSelection == 1 ? Color::Yellow : Color::Transparent);
         text_Music.setOutlineThickness(menuSelection == 1 ? 2 : 0);
+
         text_Back.setFillColor(menuSelection == 2 ? Color::Red : Color::Black);
         text_Back.setOutlineColor(menuSelection == 2 ? Color::Yellow : Color::Transparent);
         text_Back.setOutlineThickness(menuSelection == 2 ? 2 : 0);
@@ -505,118 +635,41 @@ bool soundOptions(RenderWindow& window, Sprite hand, Font font, Sound& menu_chan
     return false;
 }
 
-struct User {
-    string user_name;
-    int user_score;
-};
-
-// Declare an array to store user data with a fixed size
-const int MAX_USERS = 100; // Maximum number of users
-User user_arr[MAX_USERS];
-int user_count = 0; // Tracks number of users in the array
-
-// Function to load user data from file
-void loadUserData() {
-    ifstream myFile("user_data.txt");
-    if (!myFile.is_open()) {
-        cout << "No existing score file found. Creating a new one." << endl;
-        return;
-    }
-    string name;
-    int score;
-    while (myFile >> name >> score) {
-        if (!name.empty() && user_count < MAX_USERS) {
-            user_arr[user_count] = { name, score };
-            user_count++;
-        }
-    }
-    myFile.close();
-}
-
-// Function to save user data to file
-void saveUserData() {
-    // Sort the user_arr array by user_score in descending order
-    sort(user_arr, user_arr + user_count, [](const User& a, const User& b) {
-        return a.user_score > b.user_score; // Sort in descending order
-        });
-
-    // Open the file for writing
-    ofstream myFile("user_data.txt");
-    if (!myFile.is_open()) {
-        cout << "Error: Unable to open score file for writing." << endl;
-        return;
-    }
-
-    // Write the sorted data to the file
-    for (int i = 0; i < user_count; i++) {
-        myFile << user_arr[i].user_name << " " << user_arr[i].user_score << endl;
-    }
-
-    // Close the file
-    myFile.close();
-}
-
-// Function to update or add user score
-void updateOrAddUserScore(const string& name, int score) {
-    if (name.empty()) {
-        cout << "Error: Username cannot be empty." << endl;
-        return;
-    }
-    bool userExists = false;
-    for (int i = 0; i < user_count; i++) {
-        if (user_arr[i].user_name == name) {
-            userExists = true;
-            if (score > user_arr[i].user_score) {
-                user_arr[i].user_score = score;
-            }
-            return;
-        }
-    }
-    if (!userExists && user_count < MAX_USERS) {
-        user_arr[user_count] = { name, score };
-        user_count++;
-    }
-
-}
-
-string copyUserScoreString()
-{
-    stringstream ss;
-
-    for (int i = 0; i < user_count; i++) {
-        ss << i + 1 << ". " << user_arr[i].user_name << " - " << user_arr[i].user_score << "\n";
-    }
-    return ss.str();
-}
-
 bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enterName, Font font, Text text_start, Text text_sound, Text text_highscore, Text text_exit, Texture& tex_heads, Sprite head, Texture& tex_pauseMenu, Texture& tex_highscore, Sprite& highscore)
 {
     int menuSelection = 0;
     bool isPressed = false;
-    hand.setPosition(500, 615);
+
+    hand.setPosition(500, 620);
+
     Font nameFont;
     nameFont.loadFromFile("Arial.ttf");
+
     Text displayName("", nameFont);
     displayName.setCharacterSize(30);
     displayName.setFillColor(sf::Color::Black);
     displayName.setPosition(210, 758);
+
     Text displayText;
     displayText.setFont(font);
     displayText.setCharacterSize(40);
     displayText.setFillColor(sf::Color::White);
     displayText.setPosition(50, 850);
+
     Text error;
     error.setFont(font);
     error.setCharacterSize(30);
     error.setFillColor(sf::Color::Red);
     error.setPosition(50, 900);
     error.setString("");
+
+    // Cursor setup
     Text cursor("|", nameFont);
     cursor.setCharacterSize(25);
     cursor.setFillColor(sf::Color::Black);
-    cursor.setPosition(displayName.getPosition().x, displayName.getPosition().y + 2);
-    bool showCursor = true;
-    sf::Clock cursorClock;
+    cursor.setPosition(displayName.getPosition().x, displayName.getPosition().y + 2); // Initial position
+    bool showCursor = true; // Toggle for blinking effect
+    sf::Clock cursorClock; // Clock to control blinking
 
     while (window.isOpen())
     {
@@ -627,6 +680,7 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
             {
                 window.close();
             }
+
             if (!showMenu)
             {
                 if (event.type == Event::TextEntered)
@@ -635,6 +689,7 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
                     {
                         userName.pop_back();
                     }
+
                     else if (event.text.unicode < 128 && event.text.unicode != '\r')
                     {
                         userName += static_cast<char>(event.text.unicode);
@@ -642,15 +697,18 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
                 }
 
                 displayText.setString("Welcome " + userName + " :)");
+
                 if (event.type == Event::KeyPressed && event.key.code == Keyboard::Enter)
                 {
                     if (userName.empty())
                     {
+                        // Display error message if name is empty
                         error.setString("You must enter your name!");
                     }
+
                     else
                     {
-                        showMenu = true;
+                        showMenu = true; // Proceed to the menu
                         error.setString("");
                     }
                 }
@@ -664,14 +722,16 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
                     {
                         menu_change.play();
                         menuSelection = (menuSelection - 1 + 4) % 4;
-                        hand.setPosition(500, 620 + 50 * menuSelection);
+                        hand.setPosition(500, 630 + 50 * menuSelection);
                     }
+
                     if (event.key.code == Keyboard::Down)
                     {
                         menu_change.play();
                         menuSelection = (menuSelection + 1) % 4;
-                        hand.setPosition(500, 620 + 50 * menuSelection);
+                        hand.setPosition(500, 630 + 50 * menuSelection);
                     }
+
                     if (event.key.code == Keyboard::Enter)
                     {
                         menu_choose.play();
@@ -679,15 +739,18 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
 
                             return true;
                         }
+
                         if (menuSelection == 1)//--->sound
                         {
                             pause_menu.setPosition(150, 200);
                             soundOptions(window, hand, font, menu_change, menu_choose, background_music);
                         }
+
                         if (menuSelection == 2)//--->highscore
                         {
                             showHighscore = true;
                         }
+
                         else if (menuSelection == 3)//---->exit
                         {
                             window.close();
@@ -701,15 +764,19 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
             }
         }
 
+        // Update cursor blinking logic
         if (cursorClock.getElapsedTime().asSeconds() > 0.5f)
         {
             showCursor = !showCursor;
             cursorClock.restart();
         }
+
         float cursorX = displayName.getPosition().x + displayName.getLocalBounds().width;
         cursor.setPosition(cursorX, displayName.getPosition().y + 2);
+
         background.setPosition(0, 0);
         window.setView(window.getDefaultView());
+
         window.clear();
         window.draw(interface);
         window.draw(enterName);
@@ -728,7 +795,6 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
             highscore.setPosition(200, 0);
             highscore.setScale(2, 2);
 
-
             // Draw highscore text
             Text text;
             text.setFont(font);
@@ -736,6 +802,7 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
             text.setFillColor(sf::Color::Black);
             text.setPosition(250, 180);
             text.setString(copyUserScoreString());
+
             window.draw(background);
             window.draw(highscore);
             window.draw(text);
@@ -748,9 +815,12 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
         {
             window.draw(cursor);
         }
+
         heads(window, tex_heads, head);
+
         if (showMenu)
         {
+            // Show menu only after name entry
             text_start.setFillColor(menuSelection == 0 ? Color::Red : Color::Black);
             text_start.setOutlineColor(menuSelection == 0 ? Color::Yellow : Color::Transparent);
             text_start.setOutlineThickness(menuSelection == 0 ? 3 : 0);
@@ -783,6 +853,7 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
         }
         else
         {
+            // Draw error message if it exists
             if (!error.getString().isEmpty())
             {
                 window.draw(error);
@@ -796,21 +867,32 @@ bool startMenu(RenderWindow& window, Sprite hand, Sprite interface, Sprite enter
 
 void reset(RenderWindow& window, Players& player, vector<BLOCKS>& blocksList, int& score, int& floors, Text& Score)
 {
+    // Reset score and floors
     score = 0;
     floors = 0;
+
     win = false;
     viewpaused = false;
+
     Score.setString("Score: " + to_string(score));
     Score.setFillColor(Color::White);
+
+    // Clear the blocks list and regenerate blocks
     blocksList.clear();
     generationBlocks(tex_blocks, blocksList, player);
     player.sprite.setPosition(500, 650);
+
+    // Reset player position and velocity
     player.velocity_x = 0;
     player.velocity_y = 0;
     player.frameIndex = 0;
     player.sprite.setTextureRect(IntRect(0, 0, 38, 71));
+
+    // Reset ground detection and last position
     lastPosition = 800;
     isGround = true;
+
+    // Reset the camera view
     view.setCenter(Vector2f(500, 520));
     window.setView(view);
 }
@@ -819,8 +901,10 @@ bool pauseMenu(RenderWindow& window, Players& player, Sprite interface, Sprite h
 {
     int menuSelection = 0;
     bool isPressed = false;
+
     pause_menu.setPosition(150, 200);
     hand.setPosition(310, 240);
+
     Text text_resume("RESUME", font);
     text_resume.setCharacterSize(40);
     text_resume.setFillColor(Color::Black);
@@ -835,6 +919,7 @@ bool pauseMenu(RenderWindow& window, Players& player, Sprite interface, Sprite h
             {
                 window.close();
             }
+
             if (event.type == Event::KeyPressed && !isPressed)
             {
                 isPressed = true;
@@ -844,32 +929,37 @@ bool pauseMenu(RenderWindow& window, Players& player, Sprite interface, Sprite h
                     menuSelection = (menuSelection - 1 + 4) % 4;
                     hand.setPosition(310, 240 + 100 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Down)
                 {
                     menu_change.play();
                     menuSelection = (menuSelection + 1) % 4;
                     hand.setPosition(310, 240 + 100 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Enter)
                 {
                     menu_choose.play();
-                    if (menuSelection == 0)
+                    if (menuSelection == 0) // ---> Resume
                     {
                         viewpaused = true;
                         viewtimer.restart();
                         window.setView(view);
                         return true;
                     }
-                    else if (menuSelection == 1)
+
+                    else if (menuSelection == 1) // ---> Play Again
                     {
                         reset(window, player, blocksList, score, floors, Score);
                         return true;
                     }
-                    else if (menuSelection == 2)
+
+                    else if (menuSelection == 2) // ---> Sound
                     {
                         soundOptions(window, hand, font, menu_change, menu_choose, background_music);
                     }
-                    else if (menuSelection == 3)
+
+                    else if (menuSelection == 3) // ---> Exit to Main Menu
                     {
                         reset(window, player, blocksList, score, floors, Score);
                         return false;
@@ -884,21 +974,26 @@ bool pauseMenu(RenderWindow& window, Players& player, Sprite interface, Sprite h
 
         background.setPosition(0, 0);
         window.setView(window.getDefaultView());
+
         text_resume.setFillColor(menuSelection == 0 ? Color::Red : Color::Black);
         text_resume.setOutlineColor(menuSelection == 0 ? Color::Yellow : Color::Transparent);
         text_resume.setOutlineThickness(menuSelection == 0 ? 2 : 0);
+
         text_play_again.setFillColor(menuSelection == 1 ? Color::Red : Color::Black);
         text_play_again.setOutlineColor(menuSelection == 1 ? Color::Yellow : Color::Transparent);
         text_play_again.setOutlineThickness(menuSelection == 1 ? 2 : 0);
         text_play_again.setPosition(380, 350);
+
         text_sound.setFillColor(menuSelection == 2 ? Color::Red : Color::Black);
         text_sound.setOutlineColor(menuSelection == 2 ? Color::Yellow : Color::Transparent);
         text_sound.setOutlineThickness(menuSelection == 2 ? 2 : 0);
         text_sound.setPosition(430, 450);
+
         text_exit.setFillColor(menuSelection == 3 ? Color::Red : Color::Black);
         text_exit.setOutlineColor(menuSelection == 3 ? Color::Yellow : Color::Transparent);
         text_exit.setOutlineThickness(menuSelection == 3 ? 2 : 0);
         text_exit.setPosition(450, 550);
+
         window.clear();
         window.draw(background);
         window.draw(pause_menu);
@@ -916,14 +1011,20 @@ bool gameOver(RenderWindow& window, Players& player, Sprite hand, Texture& tex_g
 {
     int menuSelection = 0;
     bool isPressed = false;
+
     hand.setPosition(300, 530);
     pause_menu.setPosition(150, 300);
+
+    // Store the current game-specific view
     View gameView = window.getView();
+
     Text Floor("Floors: " + to_string(floors), font);
     Floor.setCharacterSize(50);
     Floor.setFillColor(Color::White);
+
     updateOrAddUserScore(userName, score);
     saveUserData();
+
     while (window.isOpen())
     {
         Event event;
@@ -933,6 +1034,7 @@ bool gameOver(RenderWindow& window, Players& player, Sprite hand, Texture& tex_g
             {
                 window.close();
             }
+
             if (event.type == Event::KeyPressed && !isPressed)
             {
                 isPressed = true;
@@ -942,22 +1044,26 @@ bool gameOver(RenderWindow& window, Players& player, Sprite hand, Texture& tex_g
                     menuSelection = (menuSelection - 1 + 2) % 2;
                     hand.setPosition(300, 530 + 100 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Down)
                 {
                     menu_change.play();
                     menuSelection = (menuSelection + 1) % 2;
                     hand.setPosition(300, 530 + 100 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Enter)
                 {
                     menu_choose.play();
-                    if (menuSelection == 0)
+                    if (menuSelection == 0)// ---> Play Again
                     {
                         reset(window, player, blocksList, score, floors, Score);
                         return true;
                     }
-                    else if (menuSelection == 1)
+
+                    else if (menuSelection == 1)// ---> Exit to Main Menu
                     {
+                        // Reset the game state
                         reset(window, player, blocksList, score, floors, Score);
                         return false;
                     }
@@ -971,16 +1077,20 @@ bool gameOver(RenderWindow& window, Players& player, Sprite hand, Texture& tex_g
 
         Floor.setFillColor(Color::Black);
         Floor.setPosition(400, 430);
+
         Score.setFillColor(Color::Black);
         Score.setPosition(400, 330);
+
         text_play_again.setFillColor(menuSelection == 0 ? Color::Red : Color::Black);
         text_play_again.setOutlineColor(menuSelection == 0 ? Color::Yellow : Color::Transparent);
         text_play_again.setOutlineThickness(menuSelection == 0 ? 2 : 0);
         text_play_again.setPosition(400, 530);
+
         text_exit.setFillColor(menuSelection == 1 ? Color::Red : Color::Black);
         text_exit.setOutlineColor(menuSelection == 1 ? Color::Yellow : Color::Transparent);
         text_exit.setOutlineThickness(menuSelection == 1 ? 2 : 0);
         text_exit.setPosition(450, 630);
+
         window.clear();
         window.setView(gameView);
         window.draw(background);
@@ -988,10 +1098,12 @@ bool gameOver(RenderWindow& window, Players& player, Sprite hand, Texture& tex_g
         window.draw(wall2);
         window.draw(ground);
         window.draw(player.sprite);
+
         for (const auto& block : blocksList)
         {
             window.draw(block.blocksSprite);
         }
+
         window.setView(window.getDefaultView());
         window.draw(gameover);
         window.draw(pause_menu);
@@ -1008,13 +1120,18 @@ bool gameOver(RenderWindow& window, Players& player, Sprite hand, Texture& tex_g
 bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_pauseMenu, Font& font, Text text_play_again, Text text_exit, vector<BLOCKS>& blocksList, Text& Score)
 {
     sound_cheer.play();
+
     int menuSelection = 0;
     bool isPressed = false;
+
     hand.setPosition(300, 530);
     pause_menu.setPosition(150, 300);
     newstage.setPosition(0, -550);
     newstage.setScale(1, 2);
+
+    // Store the current game-specific view
     View gameView = window.getView();
+
     Text Floor("Floors: " + to_string(floors), font);
     Floor.setCharacterSize(50);
     Floor.setFillColor(Color::White);
@@ -1031,6 +1148,7 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
             {
                 window.close();
             }
+
             if (event.type == Event::KeyPressed && !isPressed)
             {
                 isPressed = true;
@@ -1040,12 +1158,14 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
                     menuSelection = (menuSelection - 1 + 2) % 2;
                     hand.setPosition(300, 530 + 100 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Down)
                 {
                     menu_change.play();
                     menuSelection = (menuSelection + 1) % 2;
                     hand.setPosition(300, 530 + 100 * menuSelection);
                 }
+
                 if (event.key.code == Keyboard::Enter)
                 {
                     menu_choose.play();
@@ -1054,6 +1174,7 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
                         reset(window, player, blocksList, score, floors, Score);
                         return true;
                     }
+
                     else if (menuSelection == 1)
                     {
                         reset(window, player, blocksList, score, floors, Score);
@@ -1061,6 +1182,7 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
                     }
                 }
             }
+
             if (event.type == Event::KeyReleased)
             {
                 isPressed = false;
@@ -1069,16 +1191,20 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
 
         Floor.setFillColor(Color::Black);
         Floor.setPosition(400, 430);
+
         Score.setFillColor(Color::Black);
         Score.setPosition(400, 330);
+
         text_play_again.setFillColor(menuSelection == 0 ? Color::Red : Color::Black);
         text_play_again.setOutlineColor(menuSelection == 0 ? Color::Yellow : Color::Transparent);
         text_play_again.setOutlineThickness(menuSelection == 0 ? 2 : 0);
         text_play_again.setPosition(400, 530);
+
         text_exit.setFillColor(menuSelection == 1 ? Color::Red : Color::Black);
         text_exit.setOutlineColor(menuSelection == 1 ? Color::Yellow : Color::Transparent);
         text_exit.setOutlineThickness(menuSelection == 1 ? 2 : 0);
         text_exit.setPosition(450, 630);
+
         window.clear();
         window.setView(gameView);
         window.draw(background);
@@ -1086,10 +1212,12 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
         window.draw(wall2);
         window.draw(ground);
         window.draw(player.sprite);
+
         for (const auto& block : blocksList)
         {
             window.draw(block.blocksSprite);
         }
+
         window.setView(window.getDefaultView());
         window.draw(winner);
         window.draw(pause_menu);
@@ -1099,11 +1227,7 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
         window.draw(Floor);
         window.draw(hand);
         window.draw(newstage);
-        float viewBottom = view.getCenter().y + HEIGHT / 2;
-        if (newstage.getPosition().y < viewBottom - 200)
-        {
-            newstage.move(0, 10);
-        }
+        newstage.move(0, 10);
         window.display();
     }
     return false;
@@ -1112,18 +1236,22 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
 void draw(RenderWindow& window, Players& player, vector<BLOCKS>& blocksList, Text& Score)
 {
     window.setView(view);
+
     Vector2f camPos = view.getCenter();
     background.setPosition(camPos.x - WIDTH / 2, camPos.y - HEIGHT / 2);
     wall.setPosition(camPos.x - WIDTH / 2, camPos.y - HEIGHT / 2);
     wall2.setPosition(880 + camPos.x - WIDTH / 2, camPos.y - HEIGHT / 2);
     Score.setPosition(camPos.x - WIDTH / 2, camPos.y - HEIGHT / 2);
+
     window.draw(background);
     window.draw(wall);
     window.draw(wall2);
+
     for (auto& block : blocksList)
     {
         window.draw(block.blocksSprite);
     }
+
     window.draw(ground);
     window.draw(player.sprite);
     window.draw(Score);
@@ -1134,8 +1262,13 @@ int main()
     window.setFramerateLimit(60);
     initializeObject(window);
     loadUserData();
+
+    /*background_music.setLoop(true);
+    background_music.play();*/
+
     Font font;
     font.loadFromFile("RushDriver-Italic.otf");
+
     Text text_start("START", font);
     text_start.setCharacterSize(40);
     text_start.setFillColor(Color::Black);
@@ -1167,8 +1300,10 @@ int main()
     {
         Players player;
         Clock clock;
+
         vector<BLOCKS> blocksList;
         player.sprite.setOrigin(player.sprite.getLocalBounds().width / 2, 0);
+
         random_device rd;
         srand(rd());
         generationBlocks(tex_blocks, blocksList, player);
@@ -1180,14 +1315,17 @@ int main()
             float deltatime = clock.restart().asSeconds();
             if (!viewpaused && player.sprite.getPosition().y < HEIGHT / 3)
             {
-                view.move(0, -300 * deltatime);
+                view.move(0, -350 * deltatime);
             }
+
             if (viewpaused && viewtimer.getElapsedTime().asSeconds() >= VIEW_PAUSE_DURATION)
             {
                 viewpaused = false; // Resume view movement
             }
+
             plateform.updateBlocks(blocksList, player, deltatime, view);
             Event event;
+
             while (window.pollEvent(event))
             {
                 if (event.type == sf::Event::Closed)
@@ -1195,6 +1333,8 @@ int main()
                     window.close();
                 }
             }
+
+            // Pause menu
             if (Keyboard::isKeyPressed(Keyboard::Escape) || Keyboard::isKeyPressed(Keyboard::P))
             {
                 bool resumeGame = pauseMenu(window, player, interface, hand, font, text_sound, text_exit, text_start, blocksList, text_play_again, Score);
@@ -1203,6 +1343,8 @@ int main()
                     startMenu(window, hand, interface, enterName, font, text_start, text_sound, text_highscore, text_exit, tex_heads, head, tex_pauseMenu, tex_highscore, highscore);
                 }
             }
+
+            // Game over
             float viewBottom = view.getCenter().y + HEIGHT / 2;
             if (player.sprite.getPosition().y > viewBottom)
             {
@@ -1213,6 +1355,8 @@ int main()
                     startMenu(window, hand, interface, enterName, font, text_start, text_sound, text_highscore, text_exit, tex_heads, head, tex_pauseMenu, tex_highscore, highscore);
                 }
             }
+
+            // Collision detection with the ground
             if (player.sprite.getGlobalBounds().intersects(ground.getGlobalBounds()))
             {
                 player.sprite.setPosition(player.sprite.getPosition().x, ground.getPosition().y + 15 - player.sprite.getGlobalBounds().height);
@@ -1225,26 +1369,34 @@ int main()
                     player.sprite.setTextureRect(IntRect(0, 0, 38, 71));
                 }
             }
+
+            //Collision detection with the left wall
             if (player.sprite.getGlobalBounds().intersects(wall.getGlobalBounds()))
             {
                 player.sprite.setPosition(wall.getGlobalBounds().left + wall.getGlobalBounds().width + 50, player.sprite.getPosition().y);
                 player.velocity_x = 0;
             }
+
+            //Collision detection with the right wall
             else if (player.sprite.getGlobalBounds().intersects(wall2.getGlobalBounds()))
             {
                 player.sprite.setPosition(wall2.getGlobalBounds().left - player.sprite.getGlobalBounds().width + 50, player.sprite.getPosition().y);
                 player.velocity_x = 0;
             }
+
+            // Collision detection with blocks ------- Track the block the player is currently standing on
             static BLOCKS* currentBlock = nullptr;
             for (auto& block : blocksList)
             {
                 if (!win && player.sprite.getGlobalBounds().intersects(block.blocksSprite.getGlobalBounds()))
                 {
-                    if (player.velocity_y > 0 &&
-                        (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height - 50 <= block.blocksSprite.getPosition().y))
+                    // Check if the player is falling onto the block
+                    if (player.velocity_y > 0 && (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height - 50 <= block.blocksSprite.getPosition().y))
                     {
-                        player.sprite.setPosition(player.sprite.getPosition().x,
-                            block.blocksSprite.getPosition().y - player.sprite.getGlobalBounds().height + 12);
+                        // Place player on top of the block
+                        player.sprite.setPosition(player.sprite.getPosition().x, block.blocksSprite.getPosition().y - player.sprite.getGlobalBounds().height + 12);
+
+                        //stop falling 
                         isGround = true;
                         if (player.sprite.getPosition().y < lastPosition)
                         {
@@ -1253,40 +1405,51 @@ int main()
                             lastPosition = player.sprite.getPosition().y;
                             Score.setString("Score: " + to_string(score));
                         }
+
                         player.velocity_y = 0;
                         once = true;
+
                         currentBlock = &block; // Fixed: Assign the current block
                     }
                 }
+
                 if (player.velocity_y > 0 && (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height <= blocksList.back().blocksSprite.getPosition().y))
                 {
-                    win = true;
+                    win = true; // Prevent it from happening again
                     bool resumeGame = winMenu(window, player, hand, tex_gameover, tex_pauseMenu, font, text_play_again, text_exit, blocksList, Score);
                     if (!resumeGame)
                     {
+
                         startMenu(window, hand, interface, enterName, font, text_start, text_sound, text_highscore, text_exit, tex_heads, head, tex_pauseMenu, tex_highscore, highscore);
                     }
+
                     else
                     {
                         reset(window, player, blocksList, score, floors, Score);
                     }
                 }
             }
+
+            // Check if the player has stepped off the block
             if (currentBlock)
             {
                 float blockLeft = currentBlock->blocksSprite.getPosition().x;
                 float blockRight = blockLeft + currentBlock->blocksSprite.getGlobalBounds().width;
                 float playerLeft = player.sprite.getPosition().x - (player.sprite.getGlobalBounds().width / 2);
                 float playerRight = player.sprite.getPosition().x + (player.sprite.getGlobalBounds().width / 2);
+
+                // If the player's center is outside the block's bounds, start falling
                 if (playerRight < blockLeft || playerLeft > blockRight)
                 {
                     isGround = false;
                     currentBlock = nullptr;
                 }
             }
+
             player.jump(deltatime);
             player.sprite.move(player.velocity_x * deltatime, player.velocity_y * deltatime);
             player.handleMovement(deltatime);
+
             window.clear();
             draw(window, player, blocksList, Score);
             window.display();
