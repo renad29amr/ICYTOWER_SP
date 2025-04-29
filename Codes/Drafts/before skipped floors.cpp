@@ -24,7 +24,6 @@ const int blocksNum = 5;
 int Xleft, Xright;
 int score = 0;
 int floors = 0;
-int floorsSkipped ;
 float blockWidth = 180.0f;
 float blockHeight = 35.0f;
 float xscale;
@@ -472,7 +471,7 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
                 // Update floors and score based on block index
                 if (lastBlockIndex != -1 && currentBlockIndex != lastBlockIndex)
                 {
-                    floorsSkipped = abs(currentBlockIndex - lastBlockIndex);
+                    int floorsSkipped = abs(currentBlockIndex - lastBlockIndex);
                     cout << "floorSkip: " << floorsSkipped << endl;
                     floors += floorsSkipped;
                     score += floorsSkipped * 10; // 10 points per floor
@@ -687,12 +686,11 @@ void heads(Texture& tex_heads, Sprite& head)
     window.draw(head);
 }
 
-void reset(Players& player, vector<BLOCKS>& blocksList, int& score, int& floors, Text& Score,int& floorsSkipped)
+void reset(Players& player, vector<BLOCKS>& blocksList, int& score, int& floors, Text& Score)
 {
     // Reset score and floors
     score = 0;
     floors = 0;
-    floorsSkipped = 0;
 
     lives = max_lives;
 
@@ -848,6 +846,7 @@ bool soundOptions(Sprite hand, Font font, Sound& menu_change, Sound& menu_choose
                 sound_gonna_fall.setVolume(soundsVolume);
             }
         }
+
         else if (menuSelection == 1) // ---> Music
         {
             if (Keyboard::isKeyPressed(Keyboard::Left))
@@ -993,7 +992,7 @@ bool startMenu(Sprite hand, Sprite interface, Sprite enterName, Font font, Text 
                     {
                         menu_change.play();
                         menuSelection = (menuSelection + 1) % 4;
-                        hand.setPosition(500, 620 + 60 * menuSelection);
+                        hand.setPosition(500, 610 + 60 * menuSelection);
                     }
 
                     if (event.key.code == Keyboard::Enter)
@@ -1180,7 +1179,7 @@ bool pauseMenu(Players& player, Sprite interface, Sprite hand, Font font, Text t
 
                     else if (menuSelection == 1) // ---> Play Again
                     {
-                        reset(player, blocksList, score, floors, Score,floorsSkipped);
+                        reset(player, blocksList, score, floors, Score);
                         return true;
                     }
 
@@ -1191,7 +1190,7 @@ bool pauseMenu(Players& player, Sprite interface, Sprite hand, Font font, Text t
 
                     else if (menuSelection == 3) // ---> Exit to Main Menu
                     {
-                        reset(player, blocksList, score, floors, Score,floorsSkipped);
+                        reset(player, blocksList, score, floors, Score);
                         return false;
                     }
                 }
@@ -1287,13 +1286,13 @@ bool gameOver(Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_
                     menu_choose.play();
                     if (menuSelection == 0) // ---> Play Again
                     {
-                        reset(player, blocksList, score, floors, Score,floorsSkipped);
+                        reset(player, blocksList, score, floors, Score);
                         return true;
                     }
 
                     else if (menuSelection == 1) // ---> Exit to Main Menu
                     {
-                        reset(player, blocksList, score, floors, Score,floorsSkipped);
+                        reset(player, blocksList, score, floors, Score);
                         return false;
                     }
                 }
@@ -1352,7 +1351,7 @@ bool gameOver(Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_
     return false;
 }
 
-bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_pauseMenu, Font& font, Text text_play_again, Text text_exit, vector<BLOCKS>& blocksList, Text& Score,Text& timerText)
+bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_pauseMenu, Font& font, Text text_play_again, Text text_exit, vector<BLOCKS>& blocksList, Text& Score, Text& timerText)
 {
     sound_cheer.play();
 
@@ -1405,13 +1404,13 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
                     menu_choose.play();
                     if (menuSelection == 0) // ---> Play Again
                     {
-                        reset(player, blocksList, score, floors, Score,floorsSkipped);
+                        reset(player, blocksList, score, floors, Score);
                         return true;
                     }
 
                     else if (menuSelection == 1) // ---> Exit to Main Menu
                     {
-                        reset(player, blocksList, score, floors, Score,floorsSkipped);
+                        reset(player, blocksList, score, floors, Score);
                         return false;
                     }
                 }
@@ -1772,14 +1771,14 @@ int main()
                     win = true;
                     isGround = true;
 
-                    bool resumeGame = winMenu(window, player, hand, tex_gameover, tex_pauseMenu, font, text_play_again, text_exit, blocksList, Score,timerText);
+                    bool resumeGame = winMenu(window, player, hand, tex_gameover, tex_pauseMenu, font, text_play_again, text_exit, blocksList, Score, timerText);
                     if (!resumeGame)
                     {
                         startMenu(hand, interface, enterName, font, text_start, text_sound, text_highscore, text_exit, tex_heads, head, tex_pauseMenu, tex_highscore, highscore);
                     }
                     else
                     {
-                        reset(player, blocksList, score, floors, Score,floorsSkipped);
+                        reset(player, blocksList, score, floors, Score);
                     }
                 }
             }
