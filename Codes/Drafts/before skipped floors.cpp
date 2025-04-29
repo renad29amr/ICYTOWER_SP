@@ -436,6 +436,7 @@ void updateMovingBlocks(vector<BLOCKS>& blocksList, float deltaTime)
 void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Score, Text& text_start, Text& text_exit, Text& text_play_again, Text& text_highscore, Text& text_sound)
 {
     static BLOCKS* currentBlock = nullptr;
+    static int lastBlockIndex = -1; // Track the index of the last block the player was on
 
     // Check if player reached top to spawn barrier
     if (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height <= blockslist.back().blocksSprite.getPosition().y && !barrierSpawned)
@@ -445,8 +446,12 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
     }
 
     // Block collision
-    for (auto& block : blockslist)
+    bool landed = false;
+    int currentBlockIndex = -1;
+
+    for (size_t i = 0; i < blockslist.size(); ++i)
     {
+        auto& block = blockslist[i];
         if (player.sprite.getGlobalBounds().intersects(block.blocksSprite.getGlobalBounds()))
         {
             if (player.velocity_y > 0 && (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height - 50 <= block.blocksSprite.getPosition().y))
@@ -457,16 +462,22 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
                 isGround = true;
                 sound_falling.stop();
                 sound_gonna_fall.stop();
-                if (player.sprite.getPosition().y < lastPosition)
+
+                currentBlock = &block;
+                currentBlockIndex = i;
+                landed = true;
+
+                // Update floors and score based on block index
+                if (lastBlockIndex != -1 && currentBlockIndex != lastBlockIndex)
                 {
-                    floors++;
-                    score += 10;
-                    lastPosition = player.sprite.getPosition().y;
+                    int floorsSkipped = abs(currentBlockIndex - lastBlockIndex);
+                    cout << "floorSkip: " << floorsSkipped << endl;
+                    floors += floorsSkipped;
+                    score += floorsSkipped * 10; // 10 points per floor
                     Score.setString("Score: " + to_string(score));
                 }
-
+                lastBlockIndex = currentBlockIndex;
                 player.velocity_y = 0;
-                currentBlock = &block; // Fixed syntax error
             }
         }
     }
@@ -474,7 +485,6 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
     // Barrier collision
     if (barrierSpawned && player.sprite.getGlobalBounds().intersects(levelBarrier.getGlobalBounds()))
     {
-
         if (player.velocity_y > 0 && (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height - 50 <= levelBarrier.getPosition().y))
         {
             sound_falling.stop();
@@ -483,6 +493,8 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
             isGround = true;
             player.velocity_y = 0;
             currentBlock = nullptr;
+            currentBlockIndex = -1; // Reset block index for barrier
+            lastBlockIndex = -1; // Reset last block index
 
             if (!level2Generated)
             {
@@ -495,21 +507,19 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
         }
     }
 
-    // Check if the player has stepped off the block
-    if (currentBlock)
+    // If not landed, check if player has stepped off the block
+    if (!landed && currentBlock)
     {
         float blockLeft = currentBlock->blocksSprite.getPosition().x;
         float blockRight = blockLeft + currentBlock->blocksSprite.getGlobalBounds().width;
         float playerLeft = player.sprite.getPosition().x - (player.sprite.getGlobalBounds().width / 2);
         float playerRight = player.sprite.getPosition().x + (player.sprite.getGlobalBounds().width / 2);
 
-
-        float edgeThreshold = 40.0f; // how close to edge triggers frame 9
+        float edgeThreshold = 40.0f;
 
         bool atLeftEdge = (playerRight > blockLeft && playerRight <= blockLeft + edgeThreshold);
         bool atRightEdge = (playerLeft < blockRight && playerLeft >= blockRight - edgeThreshold);
 
-        // Edge animation
         if (isGround && (atLeftEdge || atRightEdge))
         {
             if (player.frameIndex != 11)
@@ -517,15 +527,14 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
                 player.frameIndex = 11;
                 player.sprite.setTextureRect(IntRect(player.frameIndex * 38, 0, 38, 71));
                 if (atLeftEdge)
-                    player.sprite.setScale(-2.4, 2.4); // face left
+                    player.sprite.setScale(-2.4, 2.4);
                 else
-                    player.sprite.setScale(2.4, 2.4); // face right
+                    player.sprite.setScale(2.4, 2.4);
 
                 sound_gonna_fall.play();
             }
         }
 
-        // If the player's center is outside the block's bounds, start falling
         if (playerRight < blockLeft || playerLeft > blockRight)
         {
             isGround = false;
