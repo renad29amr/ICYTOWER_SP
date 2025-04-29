@@ -20,10 +20,11 @@ const float VIEW_PAUSE_DURATION = 0.1;
 const float maxFilltime = 10.0f;
 
 //---->blocks constants<----
-const int blocksNum = 20;
+const int blocksNum = 5;
 int Xleft, Xright;
 int score = 0;
 int floors = 0;
+int floorsSkipped ;
 float blockWidth = 180.0f;
 float blockHeight = 35.0f;
 float xscale;
@@ -58,6 +59,7 @@ Clock transitionClock;
 Clock Timer;
 static Clock rotation;
 static Clock FillTime;
+
 // Textures
 Texture tex_background, tex_ground, tex_wall_right, tex_wall_left, tex_player, tex_block, tex_interface, tex_hand, tex_pauseMenu, tex_heads, tex_gameover, tex_enterName, tex_winner, tex_newstage, tex_highscore, tex_block2, tex_background2, tex_barrier, tex_ice, tex_clock, tex_clockhand;
 
@@ -470,10 +472,17 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
                 // Update floors and score based on block index
                 if (lastBlockIndex != -1 && currentBlockIndex != lastBlockIndex)
                 {
-                    int floorsSkipped = abs(currentBlockIndex - lastBlockIndex);
+                    floorsSkipped = abs(currentBlockIndex - lastBlockIndex);
                     cout << "floorSkip: " << floorsSkipped << endl;
                     floors += floorsSkipped;
-                    score += floorsSkipped * 10; // 10 points per floor
+                    if (currentLevel==1)
+                    {
+                        score += floorsSkipped * 10; // 10 points per floor
+                    }
+                    else
+                    {
+                        score += floorsSkipped * 15; 
+                    }
                     Score.setString("Score: " + to_string(score));
                 }
                 lastBlockIndex = currentBlockIndex;
@@ -690,6 +699,7 @@ void reset(Players& player, vector<BLOCKS>& blocksList, int& score, int& floors,
     // Reset score and floors
     score = 0;
     floors = 0;
+    floorsSkipped = 0;
 
     lives = max_lives;
 
@@ -1349,14 +1359,14 @@ bool gameOver(Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_
     return false;
 }
 
-bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_pauseMenu, Font& font, Text text_play_again, Text text_exit, vector<BLOCKS>& blocksList, Text& Score)
+bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_pauseMenu, Font& font, Text text_play_again, Text text_exit, vector<BLOCKS>& blocksList, Text& Score,Text& timerText)
 {
     sound_cheer.play();
 
     int menuSelection = 0;
     bool isPressed = false;
 
-    hand.setPosition(300, 530);
+    hand.setPosition(200, 560);
     pause_menu.setPosition(150, 300);
     newstage.setPosition(0, -550);
 
@@ -1387,14 +1397,14 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
                 {
                     menu_change.play();
                     menuSelection = (menuSelection - 1 + 2) % 2;
-                    hand.setPosition(300, 530 + 100 * menuSelection);
+                    hand.setPosition(200, 560 + 70 * menuSelection);
                 }
 
                 if (event.key.code == Keyboard::Down)
                 {
                     menu_change.play();
                     menuSelection = (menuSelection + 1) % 2;
-                    hand.setPosition(300, 530 + 100 * menuSelection);
+                    hand.setPosition(200, 560 + 70 * menuSelection);
                 }
 
                 if (event.key.code == Keyboard::Enter)
@@ -1420,21 +1430,24 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
             }
         }
 
-        Floor.setFillColor(Color::Black);
-        Floor.setPosition(400, 430);
-
         Score.setFillColor(Color::Black);
-        Score.setPosition(400, 330);
+        Score.setPosition(300, 350);
+
+        Floor.setFillColor(Color::Black);
+        Floor.setPosition(300, 420);
+
+        timerText.setFillColor(Color::Black);
+        timerText.setPosition(300, 490);
 
         text_play_again.setFillColor(menuSelection == 0 ? Color::Red : Color::Black);
         text_play_again.setOutlineColor(menuSelection == 0 ? Color::Yellow : Color::Transparent);
         text_play_again.setOutlineThickness(menuSelection == 0 ? 2 : 0);
-        text_play_again.setPosition(400, 530);
+        text_play_again.setPosition(300, 560);
 
         text_exit.setFillColor(menuSelection == 1 ? Color::Red : Color::Black);
         text_exit.setOutlineColor(menuSelection == 1 ? Color::Yellow : Color::Transparent);
         text_exit.setOutlineThickness(menuSelection == 1 ? 2 : 0);
-        text_exit.setPosition(450, 630);
+        text_exit.setPosition(300, 630);
 
         window.clear();
         window.setView(gameView);
@@ -1456,6 +1469,7 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
         window.draw(text_exit);
         window.draw(Score);
         window.draw(Floor);
+        window.draw(timerText);
         window.draw(hand);
         window.draw(newstage);
         newstage.move(0, 10);
@@ -1485,6 +1499,7 @@ void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font& font, 
 
     timerText.setPosition(50 + camPos.x - WIDTH / 2, camPos.y - HEIGHT / 2 + 850);
     string timeString = "Time: ";
+    timerText.setFillColor(Color::White);
     if (minutes < 10) timeString += "0";
     timeString += std::to_string(minutes);
     timeString += ":";
@@ -1764,7 +1779,7 @@ int main()
                     win = true;
                     isGround = true;
 
-                    bool resumeGame = winMenu(window, player, hand, tex_gameover, tex_pauseMenu, font, text_play_again, text_exit, blocksList, Score);
+                    bool resumeGame = winMenu(window, player, hand, tex_gameover, tex_pauseMenu, font, text_play_again, text_exit, blocksList, Score,timerText);
                     if (!resumeGame)
                     {
                         startMenu(hand, interface, enterName, font, text_start, text_sound, text_highscore, text_exit, tex_heads, head, tex_pauseMenu, tex_highscore, highscore);
