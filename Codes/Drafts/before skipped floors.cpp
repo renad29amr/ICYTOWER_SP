@@ -436,7 +436,6 @@ void updateMovingBlocks(vector<BLOCKS>& blocksList, float deltaTime)
 void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Score, Text& text_start, Text& text_exit, Text& text_play_again, Text& text_highscore, Text& text_sound)
 {
     static BLOCKS* currentBlock = nullptr;
-    static int lastBlockIndex = -1; // Track the index of the last block the player was on
 
     // Check if player reached top to spawn barrier
     if (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height <= blockslist.back().blocksSprite.getPosition().y && !barrierSpawned)
@@ -446,12 +445,8 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
     }
 
     // Block collision
-    bool landed = false;
-    int currentBlockIndex = -1;
-
-    for (size_t i = 0; i < blockslist.size(); ++i)
+    for (auto& block : blockslist)
     {
-        auto& block = blockslist[i];
         if (player.sprite.getGlobalBounds().intersects(block.blocksSprite.getGlobalBounds()))
         {
             if (player.velocity_y > 0 && (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height - 50 <= block.blocksSprite.getPosition().y))
@@ -471,22 +466,7 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
                 }
 
                 player.velocity_y = 0;
-
-                currentBlock = &block;
-            //    currentBlockIndex = i;
-            //    landed = true;
-
-            //    // Update floors and score based on block index
-            //    if (lastBlockIndex != -1 && currentBlockIndex != lastBlockIndex)
-            //    {
-            //        int floorsSkipped = abs(currentBlockIndex - lastBlockIndex);
-            //        cout << "floorSkip: " << floorsSkipped << endl;
-            //        floors += floorsSkipped;
-            //        score += 10; // 10 points per floor
-            //        Score.setString("Score: " + to_string(score));
-            //    }
-            //    lastBlockIndex = currentBlockIndex;
-            //    player.velocity_y = 0;
+                currentBlock = &block; // Fixed syntax error
             }
         }
     }
@@ -494,6 +474,7 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
     // Barrier collision
     if (barrierSpawned && player.sprite.getGlobalBounds().intersects(levelBarrier.getGlobalBounds()))
     {
+
         if (player.velocity_y > 0 && (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height - 50 <= levelBarrier.getPosition().y))
         {
             sound_falling.stop();
@@ -502,8 +483,6 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
             isGround = true;
             player.velocity_y = 0;
             currentBlock = nullptr;
-            currentBlockIndex = -1; // Reset block index for barrier
-            lastBlockIndex = -1; // Reset last block index
 
             if (!level2Generated)
             {
@@ -516,19 +495,21 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
         }
     }
 
-    // If not landed, check if player has stepped off the block
-    if (!landed && currentBlock)
+    // Check if the player has stepped off the block
+    if (currentBlock)
     {
         float blockLeft = currentBlock->blocksSprite.getPosition().x;
         float blockRight = blockLeft + currentBlock->blocksSprite.getGlobalBounds().width;
         float playerLeft = player.sprite.getPosition().x - (player.sprite.getGlobalBounds().width / 2);
         float playerRight = player.sprite.getPosition().x + (player.sprite.getGlobalBounds().width / 2);
 
-        float edgeThreshold = 40.0f;
+
+        float edgeThreshold = 40.0f; // how close to edge triggers frame 9
 
         bool atLeftEdge = (playerRight > blockLeft && playerRight <= blockLeft + edgeThreshold);
         bool atRightEdge = (playerLeft < blockRight && playerLeft >= blockRight - edgeThreshold);
 
+        // Edge animation
         if (isGround && (atLeftEdge || atRightEdge))
         {
             if (player.frameIndex != 11)
@@ -536,14 +517,15 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Font font, Text& Sco
                 player.frameIndex = 11;
                 player.sprite.setTextureRect(IntRect(player.frameIndex * 38, 0, 38, 71));
                 if (atLeftEdge)
-                    player.sprite.setScale(-2.4, 2.4);
+                    player.sprite.setScale(-2.4, 2.4); // face left
                 else
-                    player.sprite.setScale(2.4, 2.4);
+                    player.sprite.setScale(2.4, 2.4); // face right
 
                 sound_gonna_fall.play();
             }
         }
 
+        // If the player's center is outside the block's bounds, start falling
         if (playerRight < blockLeft || playerLeft > blockRight)
         {
             isGround = false;
@@ -1243,12 +1225,12 @@ bool pauseMenu(Players& player, Sprite interface, Sprite hand, Font font, Text t
     return false;
 }
 
-bool gameOver(Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_pauseMenu, Font& font, Text text_play_again, Text text_exit, vector<BLOCKS>& blocksList, Text& Score)
+bool gameOver(Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_pauseMenu, Font& font, Text text_play_again, Text text_exit, vector<BLOCKS>& blocksList, Text& Score, Text& timerText)
 {
     int menuSelection = 0;
     bool isPressed = false;
 
-    hand.setPosition(300, 530);
+    hand.setPosition(200, 560);
     pause_menu.setPosition(150, 300);
 
     // Store the current game-specific view
@@ -1278,14 +1260,14 @@ bool gameOver(Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_
                 {
                     menu_change.play();
                     menuSelection = (menuSelection - 1 + 2) % 2;
-                    hand.setPosition(300, 530 + 100 * menuSelection);
+                    hand.setPosition(200, 560 + 70 * menuSelection);
                 }
 
                 if (event.key.code == Keyboard::Down)
                 {
                     menu_change.play();
                     menuSelection = (menuSelection + 1) % 2;
-                    hand.setPosition(300, 530 + 100 * menuSelection);
+                    hand.setPosition(200, 560 + 70 * menuSelection);
                 }
 
                 if (event.key.code == Keyboard::Enter)
@@ -1311,21 +1293,25 @@ bool gameOver(Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_
             }
         }
 
-        Floor.setFillColor(Color::Black);
-        Floor.setPosition(400, 430);
-
         Score.setFillColor(Color::Black);
-        Score.setPosition(400, 330);
+        Score.setPosition(280, 350);
+
+        Floor.setFillColor(Color::Black);
+        Floor.setPosition(280, 420);
+
+        timerText.setFillColor(Color::Black);
+        timerText.setPosition(280, 490);
+
 
         text_play_again.setFillColor(menuSelection == 0 ? Color::Red : Color::Black);
         text_play_again.setOutlineColor(menuSelection == 0 ? Color::Yellow : Color::Transparent);
         text_play_again.setOutlineThickness(menuSelection == 0 ? 2 : 0);
-        text_play_again.setPosition(400, 530);
+        text_play_again.setPosition(280, 560);
 
         text_exit.setFillColor(menuSelection == 1 ? Color::Red : Color::Black);
         text_exit.setOutlineColor(menuSelection == 1 ? Color::Yellow : Color::Transparent);
         text_exit.setOutlineThickness(menuSelection == 1 ? 2 : 0);
-        text_exit.setPosition(450, 630);
+        text_exit.setPosition(280, 630);
 
         window.clear();
         window.setView(gameView);
@@ -1347,6 +1333,7 @@ bool gameOver(Players& player, Sprite hand, Texture& tex_gameover, Texture& tex_
         window.draw(text_exit);
         window.draw(Score);
         window.draw(Floor);
+        window.draw(timerText);
         window.draw(hand);
         window.display();
     }
@@ -1468,7 +1455,7 @@ bool winMenu(RenderWindow& window, Players& player, Sprite hand, Texture& tex_ga
     return false;
 }
 
-void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font& font)
+void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font& font, Text& timerText)
 {
     window.setView(view);
 
@@ -1483,12 +1470,20 @@ void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font& font)
     clockhand.setRotation(angle);
 
 
-    int time = static_cast<int>(Timer.getElapsedTime().asSeconds());
-    Text timer("Timer: " + to_string(time), font);
-    timer.setCharacterSize(50);
-    timer.setFillColor(Color::White);
-    timer.setPosition(50 + camPos.x - WIDTH / 2, camPos.y - HEIGHT / 2 + 850);
+    float time = Timer.getElapsedTime().asSeconds();
+    int minutes = static_cast<int>(time) / 60;
+    int seconds = static_cast<int>(time) % 60;
 
+    timerText.setPosition(50 + camPos.x - WIDTH / 2, camPos.y - HEIGHT / 2 + 850);
+    string timeString = "Time: ";
+    if (minutes < 10) timeString += "0";
+    timeString += std::to_string(minutes);
+    timeString += ":";
+    if (seconds < 10) timeString += "0";
+    timeString += std::to_string(seconds);
+
+    // Set text
+    timerText.setString(timeString);
 
     Text levelText("Level: " + to_string(currentLevel), font);
     levelText.setCharacterSize(50);
@@ -1544,7 +1539,7 @@ void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font& font)
     window.draw(player.sprite);
     window.draw(Score);
     window.draw(levelText);
-    window.draw(timer);
+    window.draw(timerText);
     window.setView(window.getDefaultView());
     window.draw(clock1);
     window.draw(clockhand);
@@ -1609,6 +1604,13 @@ int main()
     Score.setCharacterSize(50);
     Score.setFillColor(Color::White);
     Score.setPosition(50, 900);
+
+    Text timerText;
+    timerText.setFont(font);
+    timerText.setCharacterSize(30);
+    timerText.setFillColor(sf::Color::White);
+    timerText.setCharacterSize(50);
+    timerText.setFillColor(Color::White);
 
     bool start_game = startMenu(hand, interface, enterName, font, text_start, text_sound, text_highscore, text_exit, tex_heads, head, tex_pauseMenu, tex_highscore, highscore);
 
@@ -1696,7 +1698,7 @@ int main()
                 {
                     // No lives left - game over
                     sound_gameover.play();
-                    bool resumeGame = gameOver(player, hand, tex_gameover, tex_pauseMenu, font, text_play_again, text_exit, blocksList, Score);
+                    bool resumeGame = gameOver(player, hand, tex_gameover, tex_pauseMenu, font, text_play_again, text_exit, blocksList, Score, timerText);
 
                     if (!resumeGame)
                     {
@@ -1769,7 +1771,7 @@ int main()
             player.handleMovement(deltatime);
 
             window.clear();
-            draw(player, blocksList, Score, font);
+            draw(player, blocksList, Score, font, timerText);
             window.display();
         }
     }
