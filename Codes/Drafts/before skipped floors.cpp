@@ -1132,12 +1132,12 @@ bool pauseMenu(Players& player, Sprite interface, Sprite hand, Font font, Text t
     bool isPressed = false;
 
     pause_menu.setPosition(150, 200);
-    hand.setPosition(310, 240);
+    hand.setPosition(200, 240);
 
     Text text_resume("RESUME", font);
     text_resume.setCharacterSize(40);
     text_resume.setFillColor(Color::Black);
-    text_resume.setPosition(420, 250);
+    text_resume.setPosition(300, 250);
 
     while (window.isOpen())
     {
@@ -1156,14 +1156,14 @@ bool pauseMenu(Players& player, Sprite interface, Sprite hand, Font font, Text t
                 {
                     menu_change.play();
                     menuSelection = (menuSelection - 1 + 4) % 4;
-                    hand.setPosition(310, 240 + 100 * menuSelection);
+                    hand.setPosition(200, 240 + 100 * menuSelection);
                 }
 
                 if (event.key.code == Keyboard::Down)
                 {
                     menu_change.play();
                     menuSelection = (menuSelection + 1) % 4;
-                    hand.setPosition(310, 240 + 100 * menuSelection);
+                    hand.setPosition(200, 240 + 100 * menuSelection);
                 }
 
                 if (event.key.code == Keyboard::Enter)
@@ -1211,17 +1211,17 @@ bool pauseMenu(Players& player, Sprite interface, Sprite hand, Font font, Text t
         text_play_again.setFillColor(menuSelection == 1 ? Color::Red : Color::Black);
         text_play_again.setOutlineColor(menuSelection == 1 ? Color::Yellow : Color::Transparent);
         text_play_again.setOutlineThickness(menuSelection == 1 ? 2 : 0);
-        text_play_again.setPosition(380, 350);
+        text_play_again.setPosition(300, 350);
 
         text_sound.setFillColor(menuSelection == 2 ? Color::Red : Color::Black);
         text_sound.setOutlineColor(menuSelection == 2 ? Color::Yellow : Color::Transparent);
         text_sound.setOutlineThickness(menuSelection == 2 ? 2 : 0);
-        text_sound.setPosition(430, 450);
+        text_sound.setPosition(300, 450);
 
         text_exit.setFillColor(menuSelection == 3 ? Color::Red : Color::Black);
         text_exit.setOutlineColor(menuSelection == 3 ? Color::Yellow : Color::Transparent);
         text_exit.setOutlineThickness(menuSelection == 3 ? 2 : 0);
-        text_exit.setPosition(450, 550);
+        text_exit.setPosition(300, 550);
 
         window.clear();
         window.draw(background);
