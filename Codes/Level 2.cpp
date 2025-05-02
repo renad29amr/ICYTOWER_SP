@@ -215,7 +215,7 @@ struct BLOCKS
     float leftBound;
     float rightBound;
     int direction;
-    int level;           
+    int level;
     bool isIntersected;
 
     BLOCKS(Texture& texblocks, float xposition, float yposition, int blockLevel)
@@ -536,7 +536,7 @@ void generationBlocks(vector<BLOCKS>& blockslist, Players& player, int level)
 {
     float y;
     Texture& tex_blocks = (level == 1) ? tex_block : tex_block2;
-    int numBlocks = (level == 1) ? blocksNum : blocksNum *2;
+    int numBlocks = (level == 1) ? blocksNum : blocksNum * 2;
     float verticalSpacing = (level == 1) ? 200 : 250;
 
     if (level == 1)
@@ -580,7 +580,7 @@ void updateMovingBlocks(vector<BLOCKS>& blocksList, float deltaTime)
     }
 }
 
-void collision(vector<BLOCKS>& blockslist, Players& player, Text& Score,Text& text_skipped)
+void collision(vector<BLOCKS>& blockslist, Players& player, Text& Score, Text& text_skipped)
 {
     if (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height <= blockslist.back().blocksSprite.getPosition().y && !barrierSpawned)
     {
@@ -618,7 +618,7 @@ void collision(vector<BLOCKS>& blockslist, Players& player, Text& Score,Text& te
                 if (!block.isIntersected)
                 {
                     block.isIntersected = true;
-                
+
                     if (currentLevel == 1)
                     {
                         score += 10;
@@ -749,7 +749,7 @@ void initializeObject()
     if (!tex_clockhand.loadFromFile("clock 1.png")) return;
     if (!tex_instructions.loadFromFile("instructions.png")) return;
     if (!tex_star.loadFromFile("star.png")) return;
-   
+
     if (!background_music.openFromFile("backgroundMusic.wav"))return;
     if (!buffer_menu_choose.loadFromFile("menu_choose.ogg")) return;
     if (!buffer_menu_change.loadFromFile("menu_change.ogg")) return;
@@ -825,6 +825,10 @@ void initializeObject()
     instructions.setScale(static_cast<float>(window.getSize().x) / tex_instructions.getSize().x,
         static_cast<float>(window.getSize().y) / tex_instructions.getSize().y);
     instructions.setPosition(0, 0);
+
+    background.setTexture(tex_background);
+    background.setScale(static_cast<float>(window.getSize().x) / tex_background.getSize().x,
+        static_cast<float>(window.getSize().y) / tex_background.getSize().y);
 
     ground.setTexture(tex_ground);
     ground.setPosition(0, 800);
@@ -922,7 +926,7 @@ void reset(Players& player, vector<BLOCKS>& blocksList, Text& Score)
     window.setView(view);
 }
 
-bool soundOptions( Font font)
+bool soundOptions(Font font)
 {
     int menuSelection = 0;
     bool isPressed = false;
@@ -1159,7 +1163,7 @@ bool startMenu(Font font, Text text_start, Text text_sound, Text text_highscore,
 
                     else
                     {
-                        showMenu = true; 
+                        showMenu = true;
                         error.setString("");
                     }
                 }
@@ -1394,12 +1398,12 @@ bool pauseMenu(Players& player, Font font, Text text_sound, Text text_exit, Text
 
                     else if (menuSelection == 2) // ---> Sound
                     {
-                        soundOptions( font);
+                        soundOptions(font);
                     }
 
                     else if (menuSelection == 3) // ---> Exit to Main Menu
                     {
-                        reset(player, blocksList,Score);
+                        reset(player, blocksList, Score);
                         return false;
                     }
                 }
@@ -1495,13 +1499,13 @@ bool gameOver(Players& player, Font font, Text text_play_again, Text text_exit, 
                     menu_choose.play();
                     if (menuSelection == 0) // ---> Play Again
                     {
-                        reset(player, blocksList,  Score);
+                        reset(player, blocksList, Score);
                         return true;
                     }
 
                     else if (menuSelection == 1) // ---> Exit to Main Menu
                     {
-                        reset(player, blocksList,  Score);
+                        reset(player, blocksList, Score);
                         return false;
                     }
                 }
@@ -1559,7 +1563,7 @@ bool gameOver(Players& player, Font font, Text text_play_again, Text text_exit, 
     return false;
 }
 
-bool winMenu( Players& player, Font font, Text text_play_again, Text text_exit, vector<BLOCKS>& blocksList, Text& Score, Text& timerText)
+bool winMenu(Players& player, Font font, Text text_play_again, Text text_exit, vector<BLOCKS>& blocksList, Text& Score, Text& timerText)
 {
     sound_cheer.play();
     int menuSelection = 0;
@@ -1684,7 +1688,7 @@ void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font font, T
     wall.setPosition(camPos.x - WIDTH / 2, camPos.y - HEIGHT / 2);
     wall2.setPosition(880 + camPos.x - WIDTH / 2, camPos.y - HEIGHT / 2);
     Score.setPosition(camPos.x - WIDTH / 2 + 120, camPos.y - HEIGHT / 2);
-    
+
     //Clock hand
     float elapsedTime = rotation.getElapsedTime().asSeconds();
     float rotationPeriod = 60.0f; // Time for one full rotation (e.g., 60 seconds)
@@ -1743,7 +1747,7 @@ void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font font, T
     {
         window.draw(block.blocksSprite);
     }
-    
+
     window.draw(ground);
     window.draw(wall);
     window.draw(wall2);
@@ -1876,7 +1880,7 @@ int main()
             // Pause menu
             if (Keyboard::isKeyPressed(Keyboard::Escape) || Keyboard::isKeyPressed(Keyboard::P))
             {
-                bool resumeGame = pauseMenu(player,  font, text_sound, text_exit, text_start, blocksList, text_play_again, Score);
+                bool resumeGame = pauseMenu(player, font, text_sound, text_exit, text_start, blocksList, text_play_again, Score);
                 if (!resumeGame)
                 {
                     startMenu(font, text_start, text_sound, text_highscore, text_exit);
@@ -1911,7 +1915,7 @@ int main()
 
                     if (!resumeGame)
                     {
-                        startMenu( font, text_start, text_sound, text_highscore, text_exit);
+                        startMenu(font, text_start, text_sound, text_highscore, text_exit);
                     }
                     win = false;
                 }
@@ -1949,7 +1953,7 @@ int main()
             }
 
             // Collision detection with blocks
-            collision(blocksList, player, Score,text_skipped);
+            collision(blocksList, player, Score, text_skipped);
 
             // clockFill
             clocktimer(deltatime);
@@ -1971,15 +1975,15 @@ int main()
                     win = true;
                     isGround = true;
 
-                    bool resumeGame = winMenu( player,  font, text_play_again, text_exit, blocksList, Score, timerText);
+                    bool resumeGame = winMenu(player, font, text_play_again, text_exit, blocksList, Score, timerText);
                     if (!resumeGame)
                     {
-                        startMenu( font, text_start, text_sound, text_highscore, text_exit);
+                        startMenu(font, text_start, text_sound, text_highscore, text_exit);
                     }
 
                     else
                     {
-                        reset(player, blocksList,Score);
+                        reset(player, blocksList, Score);
                     }
                 }
             }
