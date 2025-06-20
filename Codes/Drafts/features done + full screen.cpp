@@ -27,13 +27,17 @@ int score = 0, floors = 0, Xleft, Xright, nonIntersectedBlocks = 0;
 
 // ----->Level variables<-----
 int currentLevel = 1;
-bool barrierSpawned = false, doneLevel1 = false, level2Generated = false, showSweet = false;
+bool barrierSpawned = false, doneLevel1 = false, level2Generated = false, showSweet = false, isGameOver = false;
 float sweetTime = 0.0f;
 
 // --->Life time<---
 const int max_lives = 3;
 int lives = max_lives;
 Vector2f lastSafePosition;
+
+// --->Wider Blocks Effect<---
+bool widerBlocksActive = false;
+Clock widerBlocksTimer;
 
 // --->Clocks<----
 Clock transitionClock;
@@ -43,17 +47,17 @@ float clockFill = 0.0f;
 // Textures
 Texture tex_background, tex_ground, tex_wall_right, tex_wall_left, tex_player, tex_block, tex_interface, tex_hand, tex_pauseMenu, tex_heads, tex_gameover, tex_enterName,
 tex_winner, tex_newstage, tex_highscore, tex_block2, tex_background2, tex_barrier, tex_ice, tex_clock, tex_clockhand, tex_instructions, tex_star, tex_credits, tex_sweet, tex_thankyou,
-tex_superJump, tex_extraLife, tex_loseLife;
+tex_superJump, tex_extraLife, tex_loseLife, tex_widerBlocks;
 
 // Sprites
 Sprite background, background2, ground, wall, wall2, interface, hand, pause_menu, head, gameover, enterName, winner, newstage, highscore, levelBarrier,
 ice[max_lives], clock1, clockhand, instructions, star, credits, sweet, thankyou;
 
 // Sounds
-SoundBuffer buffer_menu_choose, buffer_menu_change, buffer_jump, buffer_sound_gameover, buffer_sound_cheer,buffer_sound_rotate, 
-buffer_sound_gonna_fall, buffer_sound_sweet,buffer_sound_loseLife,buffer_sound_superJump,buffer_sound_extraLife,buffer_sound_winner;
+SoundBuffer buffer_menu_choose, buffer_menu_change, buffer_jump, buffer_sound_gameover, buffer_sound_cheer, buffer_sound_rotate, buffer_sound_gonna_fall,
+buffer_sound_sweet, buffer_sound_loseLife, buffer_sound_superJump, buffer_sound_extraLife, buffer_sound_winner, buffer_sound_widerBlocks;
 Sound menu_choose, menu_change, jump_sound, sound_gameover, sound_cheer, sound_rotate, sound_gonna_fall, sound_sweet,
-sound_loseLife,sound_superJump, sound_extraLife, sound_winner;
+sound_loseLife, sound_superJump, sound_extraLife, sound_winner, sound_widerBlocks;
 Music background_music;
 
 void adjustViewAspectRatio(View& view, RenderWindow& window, float desiredAspectRatio)
@@ -198,15 +202,27 @@ struct BLOCKS
 {
     Sprite blocksSprite;
     int direction, level;
-    float moveSpeed, leftBound, rightBound, xscale;
+    float moveSpeed, leftBound, rightBound, xscale, originalXscale;
     bool isMoving, isIntersected;
 
     BLOCKS(Texture& texblocks, float xposition, float yposition, int level)
     {
-        xscale = (rand() % 2) + (level == 1 ? 2 : 1.75);
         blocksSprite.setTexture(texblocks);
         blocksSprite.setPosition(xposition, yposition);
-        blocksSprite.setScale(xscale, 1);
+        if (widerBlocksActive)
+        {
+            // Scale to span from Xleft to Xright
+            xscale = (Xright - Xleft) / static_cast<float>(texblocks.getSize().x);
+            blocksSprite.setPosition(Xleft, yposition); // Align with left wall
+            blocksSprite.setScale(xscale, 1);
+            originalXscale = (level == 1) ? 2.0f : 1.75f; // Default scale for restoration
+        }
+        else
+        {
+            xscale = (rand() % 2) + (level == 1 ? 2 : 1.75);
+            originalXscale = xscale;
+            blocksSprite.setScale(xscale, 1);
+        }
         isIntersected = false;
 
         if (level == 2)
@@ -545,6 +561,10 @@ void generationBlocks(vector<BLOCKS>& blocksList, Players& player, int level)
     {
         y -= verticalSpacing + (rand() % 100);
         float x = (level == 1) ? (rand() % (Xright - Xleft + 400)) + Xleft : (rand() % (Xright - Xleft - 200)) + Xleft + 100;
+        if (widerBlocksActive)
+        {
+            x = Xleft; // Position at left wall for full-width blocks
+        }
         blocksList.push_back(BLOCKS(tex_blocks, x, y, level));
         blocksList[i].level = level;
     }
@@ -553,7 +573,7 @@ void generationBlocks(vector<BLOCKS>& blocksList, Players& player, int level)
 void generationFeatures(Players& player, Text& Score)
 {
     static Clock featureTimer;
-    const float spawnInterval = 3.0f; // Spawn attempt every 5 seconds
+    const float spawnInterval = 1.0f; // Spawn attempt every 5 seconds
     const float spawnProbability = 0.3f; // 30% chance to spawn a feature
 
     if (featureTimer.getElapsedTime().asSeconds() >= spawnInterval)
@@ -563,7 +583,7 @@ void generationFeatures(Players& player, Text& Score)
         {
             float x = (rand() % (Xright - Xleft - 100)) + Xleft + 50;
             float y = player.sprite.getPosition().y - (rand() % 300 + 200); // 200-500 pixels above player
-            int featureType = rand() % 3; // 0: superJump, 1: extraLife, 2: loseLife
+            int featureType = rand() % 4; // 0: superJump, 1: extraLife, 2: loseLife , 3: widerBlocks
             string type;
             Texture* texture;
 
@@ -580,6 +600,10 @@ void generationFeatures(Players& player, Text& Score)
             case 2:
                 type = "loseLife";
                 texture = &tex_loseLife;
+                break;
+            case 3:
+                type = "widerBlocks";
+                texture = &tex_widerBlocks;
                 break;
             default:
                 return;
@@ -611,194 +635,6 @@ void updateMovingBlocks(vector<BLOCKS>& blocksList, float deltaTime)
     }
 }
 
-void collisionANDlevelTransition(vector<BLOCKS>& blocksList, Players& player, Text& Score, Text& text_skipped, bool& showSuperJump)
-{
-    if (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height <= blocksList.back().blocksSprite.getPosition().y && !barrierSpawned)
-    {
-        levelBarrier.setPosition(100, blocksList.back().blocksSprite.getPosition().y - 300);
-        barrierSpawned = true;
-        if (!level2Generated)
-        {
-            generationBlocks(blocksList, player, 2);
-            level2Generated = true;
-            transitionClock.restart();
-        }
-    }
-
-    if (player.sprite.getPosition().y < levelBarrier.getPosition().y - 200 && barrierSpawned)
-    {
-        currentLevel = 2;
-        doneLevel1 = true;
-    }
-
-    bool landed = false;
-    int currentBlockIndex = -1;
-
-    for (size_t i = 0; i < blocksList.size(); ++i)
-    {
-        auto& block = blocksList[i];
-        if (player.sprite.getGlobalBounds().intersects(block.blocksSprite.getGlobalBounds()))
-        {
-            if (player.velocity_y > 0 && (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height - 50 <= block.blocksSprite.getPosition().y))
-            {
-                lastSafePosition = player.sprite.getPosition();
-                lastSafePosition.y = block.blocksSprite.getPosition().y - player.sprite.getGlobalBounds().height + 12;
-                player.sprite.setPosition(player.sprite.getPosition().x, block.blocksSprite.getPosition().y - player.sprite.getGlobalBounds().height + 12);
-                isGround = true;
-                sound_rotate.stop();
-                sound_gonna_fall.stop();
-
-                currentBlock = &blocksList[i];
-                currentBlockIndex = i;
-                landed = true;
-
-                if (!block.isIntersected)
-                {
-                    block.isIntersected = true;
-
-                    if (currentLevel == 1)
-                    {
-                        score += 10;
-                    }
-                    else
-                    {
-                        score += 15;
-                    }
-                    Score.setString("Score: " + to_string(score));
-                }
-
-                if (lastBlockIndex != -1 && currentBlockIndex != lastBlockIndex && lastBlockIndex < static_cast<int>(blocksList.size()))
-                {
-                    int startIndex = min(lastBlockIndex, currentBlockIndex);
-                    int endIndex = max(lastBlockIndex, currentBlockIndex);
-
-                    int floorsSkipped = abs(currentBlockIndex - lastBlockIndex);
-                    floors += floorsSkipped;
-
-                    for (int j = startIndex + 1; j < endIndex; j++)
-                    {
-                        if (!blocksList[j].isIntersected)
-                        {
-                            blocksList[j].isIntersected = true;
-                            nonIntersectedBlocks++;
-                            text_skipped.setString(to_string(nonIntersectedBlocks));
-
-                            if (currentLevel == 1)
-                            {
-                                score += 20;
-                            }
-                            else
-                            {
-                                score += 25;
-                            }
-
-                            if (nonIntersectedBlocks >= 1)
-                            {
-                                clockFill = 1.0f;
-                                FillTime.restart();
-                            }
-                        }
-                    }
-
-                    Score.setString("Score: " + to_string(score));
-                }
-                lastBlockIndex = currentBlockIndex;
-                player.velocity_y = 0;
-            }
-        }
-    }
-
-    // Feature collision
-    for (auto& feature : featuresList)
-    {
-        if (feature.active && player.sprite.getGlobalBounds().intersects(feature.sprite.getGlobalBounds()))
-        {
-            feature.active = false;
-
-            if (feature.type == "superJump")
-            {
-                player.hasSuperJump = true;
-                showSuperJump = true;
-                sound_superJump.play();
-            }
-            else if (feature.type == "extraLife")
-            {
-                sound_extraLife.play();
-                if (lives < max_lives)
-                {
-                    lives++;
-                }
-            }
-            else if (feature.type == "loseLife")
-            {
-                sound_loseLife.play();
-                if (lives > 1)
-                {
-                    lives--;
-                }
-                else
-                {
-                    lives = 0; // Trigger game over
-                }
-            }
-        }
-    }
-
-    if (barrierSpawned && player.sprite.getGlobalBounds().intersects(levelBarrier.getGlobalBounds()))
-    {
-        if (player.velocity_y > 0 && (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height - 50 <= levelBarrier.getPosition().y))
-        {
-            sound_rotate.stop();
-            sound_gonna_fall.stop();
-            player.sprite.setPosition(player.sprite.getPosition().x, levelBarrier.getPosition().y - player.sprite.getGlobalBounds().height + 12);
-            isGround = true;
-            player.velocity_y = 0;
-            currentBlock = nullptr;
-            currentBlockIndex = -1;
-            lastBlockIndex = -1;
-        }
-    }
-
-    if (!landed && currentBlock)
-    {
-        float blockLeft = currentBlock->blocksSprite.getPosition().x;
-        float blockRight = blockLeft + currentBlock->blocksSprite.getGlobalBounds().width;
-        float playerLeft = player.sprite.getPosition().x - (player.sprite.getGlobalBounds().width / 2);
-        float playerRight = player.sprite.getPosition().x + (player.sprite.getGlobalBounds().width / 2);
-
-        float edgeThreshold = 40.0f;
-
-        bool atLeftEdge = (playerRight > blockLeft && playerRight <= blockLeft + edgeThreshold);
-        bool atRightEdge = (playerLeft < blockRight && playerLeft >= blockRight - edgeThreshold);
-
-        if (isGround && (atLeftEdge || atRightEdge))
-        {
-            if (player.frameIndex != 11)
-            {
-                player.frameIndex = 11;
-                player.sprite.setTextureRect(IntRect(player.frameIndex * 38, 0, 38, 71));
-
-                if (atLeftEdge)
-                {
-                    player.sprite.setScale(-2.4, 2.4);
-                }
-                else
-                {
-                    player.sprite.setScale(2.4, 2.4);
-                }
-
-                sound_gonna_fall.play();
-            }
-        }
-
-        if (playerRight < blockLeft || playerLeft > blockRight)
-        {
-            isGround = false;
-            sound_gonna_fall.stop();
-            currentBlock = nullptr;
-        }
-    }
-}
 
 void initializeObject()
 {
@@ -830,6 +666,7 @@ void initializeObject()
     tex_superJump.loadFromFile("superjump.png");
     tex_extraLife.loadFromFile("extraLife.png");
     tex_loseLife.loadFromFile("loseLife.png");
+    tex_widerBlocks.loadFromFile("widerBlocks.png");
     tex_thankyou.loadFromFile("thankYou.png");
 
     // Sounds
@@ -846,6 +683,7 @@ void initializeObject()
     buffer_sound_extraLife.loadFromFile("sound_extraLife.wav");
     buffer_sound_loseLife.loadFromFile("sound_loseLife.wav");
     buffer_sound_winner.loadFromFile("sound_winner.wav");
+    buffer_sound_widerBlocks.loadFromFile("sound_widerBlock.wav");
 
     menu_choose.setBuffer(buffer_menu_choose);
     menu_change.setBuffer(buffer_menu_change);
@@ -859,6 +697,7 @@ void initializeObject()
     sound_extraLife.setBuffer(buffer_sound_extraLife);
     sound_loseLife.setBuffer(buffer_sound_loseLife);
     sound_winner.setBuffer(buffer_sound_winner);
+    sound_widerBlocks.setBuffer(buffer_sound_widerBlocks);
 
     for (int i = 0; i < max_lives; i++)
     {
@@ -989,6 +828,7 @@ void reset(Players& player, vector<BLOCKS>& blocksList, Text& Score, bool& viewp
     currentBlock = nullptr;
     nonIntersectedBlocks = 0;
     doneLevel1 = false;
+    widerBlocksActive = false; // Reset wider blocks effect
 
     player.velocity_x = 0.0f;
     player.velocity_y = 0.0f;
@@ -1142,6 +982,7 @@ bool soundOptions(Font font)
                 sound_extraLife.setVolume(soundsVolume);
                 sound_loseLife.setVolume(soundsVolume);
                 sound_winner.setVolume(soundsVolume);
+                sound_widerBlocks.setVolume(soundsVolume);
             }
 
             if (Keyboard::isKeyPressed(Keyboard::Right))
@@ -1160,6 +1001,7 @@ bool soundOptions(Font font)
                 sound_extraLife.setVolume(soundsVolume);
                 sound_loseLife.setVolume(soundsVolume);
                 sound_winner.setVolume(soundsVolume);
+                sound_widerBlocks.setVolume(soundsVolume);
             }
         }
         else if (menuSelection == 1)
@@ -1821,6 +1663,214 @@ bool winMenu(Players& player, Font font, Text text_play_again, Text text_exit, v
     }
     return false;
 }
+void collisionANDlevelTransition(vector<BLOCKS>& blocksList, Players& player, Text& Score, Text& text_skipped, Font& font, Text& text_play_again, Text& text_exit, Text& text_start, Text& text_sound, Text& text_highscore, bool& showSuperJump, Text& timerText, bool& viewpaused, bool win, Clock& rotation, Clock& viewtimer, Clock& Timer, RectangleShape& OclockFill)
+{
+    if (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height <= blocksList.back().blocksSprite.getPosition().y && !barrierSpawned)
+    {
+        levelBarrier.setPosition(100, blocksList.back().blocksSprite.getPosition().y - 300);
+        barrierSpawned = true;
+        if (!level2Generated)
+        {
+            generationBlocks(blocksList, player, 2);
+            level2Generated = true;
+            transitionClock.restart();
+        }
+    }
+
+    if (player.sprite.getPosition().y < levelBarrier.getPosition().y - 200 && barrierSpawned)
+    {
+        currentLevel = 2;
+        doneLevel1 = true;
+    }
+
+    bool landed = false;
+    int currentBlockIndex = -1;
+
+    for (size_t i = 0; i < blocksList.size(); ++i)
+    {
+        auto& block = blocksList[i];
+        if (player.sprite.getGlobalBounds().intersects(block.blocksSprite.getGlobalBounds()))
+        {
+            if (player.velocity_y > 0 && (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height - 50 <= block.blocksSprite.getPosition().y))
+            {
+                lastSafePosition = player.sprite.getPosition();
+                lastSafePosition.y = block.blocksSprite.getPosition().y - player.sprite.getGlobalBounds().height + 12;
+                player.sprite.setPosition(player.sprite.getPosition().x, block.blocksSprite.getPosition().y - player.sprite.getGlobalBounds().height + 12);
+                isGround = true;
+                sound_rotate.stop();
+                sound_gonna_fall.stop();
+
+                currentBlock = &blocksList[i];
+                currentBlockIndex = i;
+                landed = true;
+
+                if (!block.isIntersected)
+                {
+                    block.isIntersected = true;
+
+                    if (currentLevel == 1)
+                    {
+                        score += 10;
+                    }
+                    else
+                    {
+                        score += 15;
+                    }
+                    Score.setString("Score: " + to_string(score));
+                }
+
+                if (lastBlockIndex != -1 && currentBlockIndex != lastBlockIndex && lastBlockIndex < static_cast<int>(blocksList.size()))
+                {
+                    int startIndex = min(lastBlockIndex, currentBlockIndex);
+                    int endIndex = max(lastBlockIndex, currentBlockIndex);
+
+                    int floorsSkipped = abs(currentBlockIndex - lastBlockIndex);
+                    floors += floorsSkipped;
+
+                    for (int j = startIndex + 1; j < endIndex; j++)
+                    {
+                        if (!blocksList[j].isIntersected)
+                        {
+                            blocksList[j].isIntersected = true;
+                            nonIntersectedBlocks++;
+                            text_skipped.setString(to_string(nonIntersectedBlocks));
+
+                            if (currentLevel == 1)
+                            {
+                                score += 20;
+                            }
+                            else
+                            {
+                                score += 25;
+                            }
+
+                            if (nonIntersectedBlocks >= 1)
+                            {
+                                clockFill = 1.0f;
+                                FillTime.restart();
+                            }
+                        }
+                    }
+
+                    Score.setString("Score: " + to_string(score));
+                }
+                lastBlockIndex = currentBlockIndex;
+                player.velocity_y = 0;
+            }
+        }
+    }
+
+    // Feature collision
+    for (auto& feature : featuresList)
+    {
+        if (feature.active && player.sprite.getGlobalBounds().intersects(feature.sprite.getGlobalBounds()))
+        {
+            feature.active = false;
+
+            if (feature.type == "superJump")
+            {
+                player.hasSuperJump = true;
+                showSuperJump = true;
+                sound_superJump.play();
+            }
+            else if (feature.type == "extraLife")
+            {
+                sound_extraLife.play();
+                if (lives < max_lives)
+                {
+                    lives++;
+                }
+            }
+            else if (feature.type == "loseLife")
+            {
+                sound_loseLife.play();
+                if (lives > 1)
+                {
+                    lives--;
+                }
+                else
+                {
+                    sound_gameover.play();
+                    bool resumeGame = gameOver(player, font, text_play_again, text_exit, blocksList, Score, timerText, viewpaused, win, rotation, viewtimer, Timer, OclockFill);
+
+                    if (!resumeGame)
+                    {
+                        startMenu(font, text_start, text_sound, text_highscore, text_exit, Timer);
+                    }
+                    win = false;
+                }
+            }
+            else if (feature.type == "widerBlocks")
+            {
+                sound_sweet.play();
+                widerBlocksActive = true;
+                widerBlocksTimer.restart();
+                // Set all blocks to span from Xleft to Xright
+                for (auto& block : blocksList)
+                {
+                    block.xscale = (Xright - Xleft);
+                    block.blocksSprite.setScale(block.xscale, 1);
+                    block.blocksSprite.setPosition(Xleft - 70, block.blocksSprite.getPosition().y); // Align with left wall
+                }
+            }
+        }
+    }
+
+    if (barrierSpawned && player.sprite.getGlobalBounds().intersects(levelBarrier.getGlobalBounds()))
+    {
+        if (player.velocity_y > 0 && (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height - 50 <= levelBarrier.getPosition().y))
+        {
+            sound_rotate.stop();
+            sound_gonna_fall.stop();
+            player.sprite.setPosition(player.sprite.getPosition().x, levelBarrier.getPosition().y - player.sprite.getGlobalBounds().height + 12);
+            isGround = true;
+            player.velocity_y = 0;
+            currentBlock = nullptr;
+            currentBlockIndex = -1;
+            lastBlockIndex = -1;
+        }
+    }
+
+    if (!landed && currentBlock)
+    {
+        float blockLeft = currentBlock->blocksSprite.getPosition().x;
+        float blockRight = blockLeft + currentBlock->blocksSprite.getGlobalBounds().width;
+        float playerLeft = player.sprite.getPosition().x - (player.sprite.getGlobalBounds().width / 2);
+        float playerRight = player.sprite.getPosition().x + (player.sprite.getGlobalBounds().width / 2);
+
+        float edgeThreshold = 40.0f;
+
+        bool atLeftEdge = (playerRight > blockLeft && playerRight <= blockLeft + edgeThreshold);
+        bool atRightEdge = (playerLeft < blockRight && playerLeft >= blockRight - edgeThreshold);
+
+        if (isGround && (atLeftEdge || atRightEdge))
+        {
+            if (player.frameIndex != 11)
+            {
+                player.frameIndex = 11;
+                player.sprite.setTextureRect(IntRect(player.frameIndex * 38, 0, 38, 71));
+
+                if (atLeftEdge)
+                {
+                    player.sprite.setScale(-2.4, 2.4);
+                }
+                else
+                {
+                    player.sprite.setScale(2.4, 2.4);
+                }
+
+                sound_gonna_fall.play();
+            }
+        }
+
+        if (playerRight < blockLeft || playerLeft > blockRight)
+        {
+            isGround = false;
+            sound_gonna_fall.stop();
+            currentBlock = nullptr;
+        }
+    }
+}
 
 void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font font, Text& timerText, Text& text_skipped, float& deltatime, Clock& rotation, Clock& Timer, RectangleShape& OclockFill, bool& showSuperJump)
 {
@@ -2035,6 +2085,20 @@ int main()
         while (window.isOpen())
         {
             float deltatime = clock.restart().asSeconds();
+            // Check if wider blocks effect should end
+            if (widerBlocksActive && widerBlocksTimer.getElapsedTime().asSeconds() >= 3.0f)
+            {
+                widerBlocksActive = false;
+                for (auto& block : blocksList)
+                {
+                    block.xscale = block.originalXscale;
+                    block.blocksSprite.setScale(block.originalXscale, 1);
+                    // Reposition to a random x within bounds
+                    float x = (block.level == 1) ? (rand() % (Xright - Xleft + 400)) + Xleft : (rand() % (Xright - Xleft - 200)) + Xleft + 100;
+                    block.blocksSprite.setPosition(x, block.blocksSprite.getPosition().y);
+                }
+            }
+
             if (!viewpaused && player.sprite.getPosition().y < HEIGHT / 3)
             {
                 view_movement(deltatime);
@@ -2133,7 +2197,7 @@ int main()
             }
 
             // Collision with blocks & level2
-            collisionANDlevelTransition(blocksList, player, Score, text_skipped, showSuperJump);
+            collisionANDlevelTransition(blocksList, player, Score, text_skipped, font, text_play_again, text_exit, text_start, text_sound, text_highscore, showSuperJump, timerText, viewpaused, win, rotation, viewtimer, Timer, OclockFill);
 
             clocktimer(deltatime);
 
