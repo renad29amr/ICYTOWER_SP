@@ -7,7 +7,7 @@
 #include <sstream>
 #include <fstream>
 #include <algorithm>
-
+#include "file.h"
 using namespace sf;
 using namespace std;
 
@@ -60,6 +60,11 @@ Sound menu_choose, menu_change, jump_sound, sound_gameover, sound_cheer, sound_r
 sound_loseLife, sound_superJump, sound_extraLife, sound_winner, sound_widerBlocks;
 Music background_music;
 
+// ------> File <------
+string userName = "";
+User user_arr[MAX_USERS];
+int user_count = 0;
+
 void adjustViewAspectRatio(View& view, RenderWindow& window, float desiredAspectRatio)
 {
     float windowWidth = static_cast<float>(window.getSize().x);
@@ -83,101 +88,6 @@ void adjustViewAspectRatio(View& view, RenderWindow& window, float desiredAspect
 
     view.setViewport(viewport);
     window.setView(view);
-}
-
-// ------> File <------
-string userName = "";
-
-struct User
-{
-    string user_name;
-    int user_score;
-};
-
-const int MAX_USERS = 16;
-User user_arr[MAX_USERS];
-int user_count = 0;
-
-void loadUserData()
-{
-    ifstream myFile("user_data.txt");
-    string line;
-    user_count = 0;
-
-    while (getline(myFile, line) && user_count < MAX_USERS)
-    {
-        size_t lastSpace = line.rfind(' ');
-        if (lastSpace != string::npos)
-        {
-            string name = line.substr(0, lastSpace);
-            string scoreStr = line.substr(lastSpace + 1);
-
-            try
-            {
-                int score = stoi(scoreStr);
-                name.erase(0, name.find_first_not_of(" \t"));
-                name.erase(name.find_last_not_of(" \t") + 1);
-                user_arr[user_count] = { name, score };
-                user_count++;
-            }
-            catch (const exception& e)
-            {
-                continue;
-            }
-        }
-    }
-    myFile.close();
-}
-
-void saveUserData()
-{
-    sort(user_arr, user_arr + user_count, [](const User& a, const User& b)
-        {
-            return a.user_score > b.user_score;
-        });
-
-    ofstream myFile("user_data.txt");
-    for (int i = 0; i < user_count; i++)
-    {
-        myFile << user_arr[i].user_name << " " << user_arr[i].user_score << endl;
-    }
-    myFile.close();
-}
-
-void updateOrAddUserScore(const string& name, int score)
-{
-    bool userExists = false;
-
-    for (int i = 0; i < user_count; i++)
-    {
-        if (user_arr[i].user_name == name)
-        {
-            userExists = true;
-            if (score > user_arr[i].user_score)
-            {
-                user_arr[i].user_score = score;
-            }
-            return;
-        }
-    }
-
-    if (!userExists && user_count < MAX_USERS)
-    {
-        user_arr[user_count] = { name, score };
-        user_count++;
-    }
-}
-
-string copyUserScore()
-{
-    stringstream s;
-
-    for (int i = 0; i < user_count; i++)
-    {
-        s << i + 1 << ". " << user_arr[i].user_name << " - " << user_arr[i].user_score << "\n";
-    }
-
-    return s.str();
 }
 
 void clocktimer(float deltatime)
@@ -634,7 +544,6 @@ void updateMovingBlocks(vector<BLOCKS>& blocksList, float deltaTime)
         }
     }
 }
-
 
 void initializeObject()
 {
@@ -1663,6 +1572,7 @@ bool winMenu(Players& player, Font font, Text text_play_again, Text text_exit, v
     }
     return false;
 }
+
 void collisionANDlevelTransition(vector<BLOCKS>& blocksList, Players& player, Text& Score, Text& text_skipped, Font& font, Text& text_play_again, Text& text_exit, Text& text_start, Text& text_sound, Text& text_highscore, bool& showSuperJump, Text& timerText, bool& viewpaused, bool win, Clock& rotation, Clock& viewtimer, Clock& Timer, RectangleShape& OclockFill)
 {
     if (player.sprite.getPosition().y + player.sprite.getGlobalBounds().height <= blocksList.back().blocksSprite.getPosition().y && !barrierSpawned)
@@ -1891,7 +1801,7 @@ void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font font, T
     int seconds = time % 60;
 
     timerText.setPosition(200 + camPos.x - WIDTH / 2, camPos.y - HEIGHT / 2 + 950);
-    string timeString = "Time: ";
+    std :: string timeString = "Time: ";
     timerText.setFillColor(Color::White);
     if (minutes < 10) timeString += "0";
     timeString += to_string(minutes);
