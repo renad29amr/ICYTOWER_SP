@@ -15,16 +15,14 @@
 using namespace sf;
 using namespace std;
 
-const int WIDTH = 1920, HEIGHT = 1080;
-const float VIEW_PAUSE_DURATION = 0.1, VIEW_SPEED_1 = -580, VIEW_SPEED_2 = -540, VIEW_SPEED_3 = -500;
+const float WIDTH = 1920, HEIGHT = 1080;
+const float VIEW_PAUSE_DURATION = 0.1;
 
-RenderWindow window(VideoMode(1920, 1080), "icyTower", Style::Close | Style::Fullscreen);
+RenderWindow window(VideoMode(WIDTH, HEIGHT), "icyTower", Style::Close | Style::Fullscreen);
 
 View view;
 
 bool isGround = false, showStartMenu = false, showWelcome = true;
-
-static float superJumpX = 0.0f, superJumpY = 0.0f;
 
 // ----> blocks constants <----
 const int blocksNum = 50;
@@ -32,7 +30,6 @@ int score = 0, floors = 0, Xleft, Xright, nonIntersectedBlocks = 0;
 
 // ---->Level variables<----
 int currentLevel = 1;
-bool isGameOver = false;
 
 // ----> Life time <----
 const int max_lives = 3;
@@ -42,7 +39,6 @@ Vector2f lastSafePosition;
 // ---->Wider Blocks Effect<----
 bool widerBlocksActive = false;
 Clock widerBlocksTimer;
-Clock rotation;
 
 // ----> hurry up variables <----
 bool showhurryUp = false;
@@ -55,7 +51,7 @@ bool showSweet = false;
 // ----> highScore variables <----
 float highScoreTime = 0.0f;
 bool showHighScore = false;
-bool highScoreShownThisSession = false;
+bool highScoreShownThisGame = false;
 
 // ----> boom variables <----
 bool showBoom = false;
@@ -64,30 +60,24 @@ float boomTime = 0.0f;
 
 // ----> File <----
 string userName = "";
-User user_arr[MAX_USERS];
-int user_count = 0;
-//----> starsfall variable <---------
-bool showStars = false;
-Vector2f starsPos;
-float starsAngle = 0.0f;
 
 // Textures
 Texture tex_background, tex_background2, tex_background3, tex_ground, tex_wall_right, tex_wall_left, tex_player, tex_block, tex_block2, tex_block3,
-tex_interface, tex_hand, tex_pauseMenu, tex_heads, tex_gameover, tex_enterName, tex_winner, tex_newstage, tex_highscoreMenu, tex_barrier, tex_barrier2,
-tex_ice, tex_clock, tex_clockhand, tex_instructions, tex_star, tex_credits, tex_sweet, tex_thankyou, tex_superJump, tex_extraLife, tex_loseLife,
-tex_widerBlocks, tex_welcome, tex_bomb, tex_boom, tex_hurryUp, tex_cracks, tex_highScore, tex_starsfall;
+tex_interface, tex_hand, tex_menu, tex_heads, tex_gameover, tex_enterName, tex_winner, tex_newstage, tex_highscoreMenu, tex_barrier, tex_barrier2,
+tex_ice, tex_clock, tex_clockHand, tex_instructions, tex_star, tex_credits, tex_sweet, tex_thankyou, tex_superJump, tex_extraLife, tex_loseLife,
+tex_widerBlocks, tex_welcome, tex_bomb, tex_boom, tex_hurryUp, tex_cracks, tex_highScore;
 
 // Sprites
-Sprite background, background2, background3, ground, wall, wall2, interface, hand, pause_menu, head, gameover, enterName, winner, newstage, highscoreMenu,
-barrier, barrier2, ice[max_lives], clock1, clockhand, instructions, star, credits, sweet, thankyou, welcome, bomb, boom, hurryUp, cracks, highScore, starsfall;
+Sprite ground, wall, wall2, interface, hand, menu, head, gameover, enterName, winner, newstage,highscoreMenu, ice[max_lives], 
+wallClock, clockHand, instructions, star, credits, sweet, thankyou, welcome, bomb, boom, hurryUp, cracks, highScore;
 
 // Sounds
 SoundBuffer buffer_menu_choose, buffer_menu_change, buffer_jump, buffer_sound_gameover, buffer_sound_cheer, buffer_sound_rotate,
 buffer_sound_gonna_fall, buffer_sound_sweet, buffer_sound_loseLife, buffer_sound_superJump, buffer_sound_extraLife, buffer_sound_winner,
-buffer_sound_widerBlocks, buffer_sound_bye, buffer_sound_bomb, buffer_sound_spark, buffer_sound_hurryUp;
+buffer_sound_widerBlocks, buffer_sound_bye, buffer_sound_bomb, buffer_sound_spark, buffer_sound_hurryUp, buffer_sound_highScore;
 
 Sound menu_choose, menu_change, jump_sound, sound_gameover, sound_cheer, sound_rotate, sound_gonna_fall, sound_sweet, sound_loseLife,
-sound_superJump, sound_extraLife, sound_winner, sound_widerBlocks, sound_bye, sound_bomb, sound_spark, sound_hurryUp;
+sound_superJump, sound_extraLife, sound_winner, sound_widerBlocks, sound_bye, sound_bomb, sound_spark, sound_hurryUp, sound_highScore;
 
 Music background_music;
 
@@ -177,12 +167,6 @@ struct Barrier
 const int NUM_BARRIERS = 2;
 Barrier* barriers[NUM_BARRIERS];
 
-void view_movement(float& deltatime, int level)
-{
-    int view_speed = (level == 1) ? VIEW_SPEED_1 : (level == 2) ? VIEW_SPEED_2 : VIEW_SPEED_3;
-    view.move(0, view_speed * deltatime);
-}
-
 struct Feature
 {
     Sprite sprite;
@@ -205,8 +189,7 @@ struct Players
     const float moveSpeed = 300.0f, jump_strength = -10000.0f, gravity = 25000.0f;
     float velocity_x, velocity_y, frameTimer, rotationAngle;
     int frameIndex;
-    bool rotatedInAir, onBarrier = true, onBarrier2 = true, isRotating, isMovingleft, isMovingright;
-    bool hasSuperJump;
+    bool rotatedInAir, onBarrier = true, onBarrier2 = true, isRotating, isMovingleft, isMovingright,hasSuperJump;
 
     Players()
     {
@@ -357,7 +340,7 @@ struct Players
 
     void playerRotation(float deltatime, vector<BLOCKS>& blocksList, int level, bool& viewpaused, Clock& viewtimer, bool& win, bool resetRotation = false)
     {
-        if (isGameOver || win) return;
+        if (lives ==0 || win) return;
 
         static const float FAST_VIEW_SPEED = 700.0f;
         static float jumpHeight = 200.0f, jumpDirection = 1.0f, jumpDuration = 0.7f, jumpTime = 0.0f;
@@ -469,10 +452,6 @@ struct Players
             sprite.setRotation(jumpDirection * 360.0f * t);
             sprite.setPosition(pos);
 
-            starsPos = sprite.getPosition();
-            starsPos.y -= 20;
-            showStars = true;
-
             float viewY = view.getCenter().y;
             float playerY = sprite.getPosition().y;
             float targetViewY = playerY + HEIGHT / 3;
@@ -489,7 +468,7 @@ struct Players
             }
 
             view.setCenter(Vector2f(view.getCenter().x, viewY));
-            adjustViewAspectRatio(1920.0f / 1080.0f);
+            adjustViewAspectRatio(WIDTH / HEIGHT);
             window.setView(view);
 
             if (t >= 1.0f)
@@ -503,7 +482,6 @@ struct Players
                 fastViewActive = false;
                 viewpaused = true;
                 viewtimer.restart();
-                showStars = false;
             }
             return;
         }
@@ -532,8 +510,8 @@ struct Background
     Background(Texture& texture, int levelNum) : texture(texture), level(levelNum)
     {
         sprite.setTexture(texture);
-        sprite.setScale(static_cast<float>(1920) / texture.getSize().x,
-            static_cast<float>(1080) / texture.getSize().y);
+        sprite.setScale(static_cast<float>(WIDTH) / texture.getSize().x,
+            static_cast<float>(HEIGHT) / texture.getSize().y);
     }
 
     void setPosition(float x, float y)
@@ -557,7 +535,7 @@ void generationBlocks(vector<BLOCKS>& blocksList, Players& player, int level)
     float y;
     Texture& tex_blocks = (level == 1) ? tex_block : (level == 2) ? tex_block2 : tex_block3;
 
-    int numBlocks = blocksNum*level;
+    int numBlocks = blocksNum * level;
     float verticalSpacing = (level == 1) ? 175 : (level == 2) ? 215 : 250;
 
     if (level == 1 || blocksList.empty())
@@ -608,7 +586,7 @@ void generationFeatures(vector<BLOCKS>& blocksList, Players& player, Text& Score
             string type;
             Texture* texture;
 
-            int featureType = rand() % 4; // 0: superJump, 1: extraLife, 2: loseLife, 3: widerBlocks
+            int featureType = rand() % 4;
 
             x = (rand() % (Xright - Xleft - 100)) + Xleft + 50;
             y = player.sprite.getPosition().y - (rand() % 300 + 200);
@@ -644,13 +622,13 @@ void generationFeatures(vector<BLOCKS>& blocksList, Players& player, Text& Score
     }
 }
 
-void updateMovingBlocks(vector<BLOCKS>& blocksList, float deltaTime)
+void updateMovingBlocks(vector<BLOCKS>& blocksList, float deltatime)
 {
     for (auto& block : blocksList)
     {
         if (block.isMoving && !widerBlocksActive)
         {
-            block.blocksSprite.move(2 * block.moveSpeed * block.direction * deltaTime, 0);
+            block.blocksSprite.move(2 * block.moveSpeed * block.direction * deltatime, 0);
 
             float currentX = block.blocksSprite.getPosition().x;
             if (currentX <= block.leftBound)
@@ -679,7 +657,7 @@ void handleWiderBlocksEffect(vector<BLOCKS>& blocksList, int currentLevel, Playe
             block.blocksSprite.setPosition(block.originalXposition, block.blocksSprite.getPosition().y);
             block.blocksSprite.setOrigin(0, 0);
 
-            if (block.level == 2 || block.level == 3)
+            if (block.level > 1)
             {
                 block.isMoving = true;
                 block.moveSpeed = (rand() % 50) + 100;
@@ -698,66 +676,66 @@ void handleWiderBlocksEffect(vector<BLOCKS>& blocksList, int currentLevel, Playe
 
 void initializeObject()
 {
-    tex_background.loadFromFile("background.jpg");
-    tex_background2.loadFromFile("background2.png");
-    tex_background3.loadFromFile("background3.png");
-    tex_ground.loadFromFile("ground.jpg");
-    tex_wall_left.loadFromFile("wall left.png");
-    tex_wall_right.loadFromFile("wall flipped right.png");
-    tex_player.loadFromFile("player.png");
-    tex_block.loadFromFile("block.png");
-    tex_block2.loadFromFile("block2.png");
-    tex_block3.loadFromFile("block3.png");
-    tex_interface.loadFromFile("mainMenu.png");
-    tex_hand.loadFromFile("hand.png");
-    tex_pauseMenu.loadFromFile("pauseMenu.png");
-    tex_heads.loadFromFile("heads.png");
-    tex_gameover.loadFromFile("gameover.png");
-    tex_enterName.loadFromFile("enterName.png");
-    tex_winner.loadFromFile("winner.png");
-    tex_newstage.loadFromFile("newstage.png");
-    tex_highscoreMenu.loadFromFile("highscoreMenu.png");
-    tex_barrier.loadFromFile("barrier.png");
-    tex_barrier2.loadFromFile("barrier2.png");
-    tex_ice.loadFromFile("ice.png");
-    tex_clock.loadFromFile("clock2.png");
-    tex_clockhand.loadFromFile("clock 1.png");
-    tex_instructions.loadFromFile("instructions.png");
-    tex_credits.loadFromFile("credits.png");
-    tex_star.loadFromFile("star.png");
-    tex_sweet.loadFromFile("sweet.png");
-    tex_superJump.loadFromFile("superjump.png");
-    tex_extraLife.loadFromFile("extraLife.png");
-    tex_loseLife.loadFromFile("loseLife.png");
-    tex_widerBlocks.loadFromFile("widerBlocks.png");
-    tex_thankyou.loadFromFile("thankYou.png");
-    tex_welcome.loadFromFile("Welcome.png");
-    tex_bomb.loadFromFile("bomb.png");
-    tex_boom.loadFromFile("BOOM.png");
-    tex_hurryUp.loadFromFile("hurryUp.png");
-    tex_cracks.loadFromFile("cracks.png");
-    tex_highScore.loadFromFile("highScore.png");
-    tex_starsfall.loadFromFile("starsfall.png");
+    tex_background.loadFromFile("images//background.jpg");
+    tex_background2.loadFromFile("images//background2.png");
+    tex_background3.loadFromFile("images//background3.png");
+    tex_ground.loadFromFile("images//ground.jpg");
+    tex_wall_left.loadFromFile("images//wall left.png");
+    tex_wall_right.loadFromFile("images//wall right.png");
+    tex_player.loadFromFile("images//player.png");
+    tex_block.loadFromFile("images//block.png");
+    tex_block2.loadFromFile("images//block2.png");
+    tex_block3.loadFromFile("images//block3.png");
+    tex_interface.loadFromFile("images//mainMenu.png");
+    tex_hand.loadFromFile("images//hand.png");
+    tex_menu.loadFromFile("images//pauseMenu.png");
+    tex_heads.loadFromFile("images//heads.png");
+    tex_gameover.loadFromFile("images//gameover.png");
+    tex_enterName.loadFromFile("images//enterName.png");
+    tex_winner.loadFromFile("images//winner.png");
+    tex_newstage.loadFromFile("images//newstage.png");
+    tex_highscoreMenu.loadFromFile("images//highscoreMenu.png");
+    tex_barrier.loadFromFile("images//barrier.png");
+    tex_barrier2.loadFromFile("images//barrier2.png");
+    tex_ice.loadFromFile("images//ice.png");
+    tex_clock.loadFromFile("images//clock.png");
+    tex_clockHand.loadFromFile("images//clockHand.png");
+    tex_instructions.loadFromFile("images//instructions.png");
+    tex_credits.loadFromFile("images//credits.png");
+    tex_star.loadFromFile("images//star.png");
+    tex_sweet.loadFromFile("images//sweet.png");
+    tex_superJump.loadFromFile("images//superjump.png");
+    tex_extraLife.loadFromFile("images//extraLife.png");
+    tex_loseLife.loadFromFile("images//loseLife.png");
+    tex_widerBlocks.loadFromFile("images//widerBlocks.png");
+    tex_thankyou.loadFromFile("images//thankYou.png");
+    tex_welcome.loadFromFile("images//Welcome.png");
+    tex_bomb.loadFromFile("images//bomb.png");
+    tex_boom.loadFromFile("images//BOOM.png");
+    tex_hurryUp.loadFromFile("images//hurryUp.png");
+    tex_cracks.loadFromFile("images//cracks.png");
+    tex_highScore.loadFromFile("images//highScore.png");
 
     // Sounds
-    background_music.openFromFile("backgroundMusic.wav");
-    buffer_menu_choose.loadFromFile("menu_choose.ogg");
-    buffer_menu_change.loadFromFile("menu_change.ogg");
-    buffer_jump.loadFromFile("jump.ogg");
-    buffer_sound_gonna_fall.loadFromFile("gonna_fall.ogg");
-    buffer_sound_gameover.loadFromFile("sound_gameover.opus");
-    buffer_sound_cheer.loadFromFile("sound_cheer.opus");
-    buffer_sound_rotate.loadFromFile("sound_falling.wav");
-    buffer_sound_sweet.loadFromFile("sound_sweet.ogg");
-    buffer_sound_superJump.loadFromFile("sound_superJump.wav");
-    buffer_sound_extraLife.loadFromFile("sound_extraLife.wav");
-    buffer_sound_loseLife.loadFromFile("sound_loseLife.wav");
-    buffer_sound_winner.loadFromFile("sound_winner.wav");
-    buffer_sound_widerBlocks.loadFromFile("sound_widerBlock.wav");
-    buffer_sound_bye.loadFromFile("sound_bye.wav");
-    buffer_sound_bomb.loadFromFile("sound_bomb.wav");
-    buffer_sound_spark.loadFromFile("sound_spark.wav");
-    buffer_sound_hurryUp.loadFromFile("sound_hurryUp.wav");
+    background_music.openFromFile("Sound//backgroundMusic.wav");
+    buffer_menu_choose.loadFromFile("Sound//menu_choose.ogg");
+    buffer_menu_change.loadFromFile("Sound//menu_change.ogg");
+    buffer_jump.loadFromFile("Sound//sound_jump.ogg");
+    buffer_sound_gonna_fall.loadFromFile("Sound//sound_gonna_fall.ogg");
+    buffer_sound_gameover.loadFromFile("Sound//sound_gameover.opus");
+    buffer_sound_cheer.loadFromFile("Sound//sound_cheer.opus");
+    buffer_sound_rotate.loadFromFile("Sound//sound_falling.wav");
+    buffer_sound_sweet.loadFromFile("Sound//sound_sweet.ogg");
+    buffer_sound_superJump.loadFromFile("Sound//sound_superJump.wav");
+    buffer_sound_extraLife.loadFromFile("Sound//sound_extraLife.wav");
+    buffer_sound_loseLife.loadFromFile("Sound//sound_loseLife.wav");
+    buffer_sound_winner.loadFromFile("Sound//sound_winner.wav");
+    buffer_sound_widerBlocks.loadFromFile("Sound//sound_widerBlock.wav");
+    buffer_sound_bye.loadFromFile("Sound//sound_bye.wav");
+    buffer_sound_bomb.loadFromFile("Sound//sound_bomb.wav");
+    buffer_sound_spark.loadFromFile("Sound//sound_spark.wav");
+    buffer_sound_hurryUp.loadFromFile("Sound//sound_hurryUp.wav");
+    buffer_sound_highScore.loadFromFile("Sound//sound_highScore.ogg");
 
     menu_choose.setBuffer(buffer_menu_choose);
     menu_change.setBuffer(buffer_menu_change);
@@ -776,7 +754,9 @@ void initializeObject()
     sound_bomb.setBuffer(buffer_sound_bomb);
     sound_spark.setBuffer(buffer_sound_spark);
     sound_hurryUp.setBuffer(buffer_sound_hurryUp);
+    sound_highScore.setBuffer(buffer_sound_highScore);
 
+    // Lives
     for (int i = 0; i < max_lives; i++)
     {
         ice[i].setTexture(tex_ice);
@@ -784,27 +764,29 @@ void initializeObject()
     }
 
     welcome.setTexture(tex_welcome);
-    welcome.setScale(static_cast<float>(1920) / tex_interface.getSize().x + .32,
-        static_cast<float>(1080) / tex_interface.getSize().y + .28);
+    welcome.setScale(static_cast<float>(WIDTH) / tex_interface.getSize().x + .32,
+        static_cast<float>(HEIGHT) / tex_interface.getSize().y + .28);
     welcome.setPosition(0, 0);
 
     enterName.setTexture(tex_enterName);
     enterName.setPosition(950, 630);
     enterName.setScale(2.5, 2.7);
 
-    clock1.setTexture(tex_clock);
-    clock1.setScale(1.5, 1.5);
-    clock1.setPosition(0, 50);
-    clockhand.setTexture(tex_clockhand);
-    clockhand.setPosition(65, 135);
-    clockhand.setScale(1.2, 1.2);
-    FloatRect clockhandBounds = clockhand.getLocalBounds();
-    clockhand.setOrigin(clockhandBounds.width / 2, clockhandBounds.height - 10);
-    clockhand.setRotation(0);
+    // Clock
+    wallClock.setTexture(tex_clock);
+    wallClock.setScale(1.5, 1.5);
+    wallClock.setPosition(0, 50);
+
+    clockHand.setTexture(tex_clockHand);
+    clockHand.setPosition(65, 135);
+    clockHand.setScale(1.2, 1.2);
+    FloatRect clockhandBounds = clockHand.getLocalBounds();
+    clockHand.setOrigin(clockhandBounds.width / 2, clockhandBounds.height - 10);
+    clockHand.setRotation(0);
 
     star.setTexture(tex_star);
-    star.setScale(1.2, 1.2);
-    star.setPosition(10, 375);
+    star.setScale(1.35, 1.35);
+    star.setPosition(7, 375);
 
     sweet.setTexture(tex_sweet);
     sweet.setPosition(620, 120);
@@ -814,8 +796,8 @@ void initializeObject()
     hurryUp.setTexture(tex_hurryUp);
     hurryUp.setPosition(view.getCenter().x - 70, view.getCenter().y - 80);
 
-    pause_menu.setTexture(tex_pauseMenu);
-    pause_menu.setScale(2, 2.5);
+    menu.setTexture(tex_menu);
+    menu.setScale(2, 2.5);
 
     gameover.setTexture(tex_gameover);
     gameover.setPosition(620, 70);
@@ -828,9 +810,6 @@ void initializeObject()
     newstage.setTexture(tex_newstage);
     newstage.setScale(1, 2);
 
-    starsfall.setTexture(tex_starsfall);
-    starsfall.setScale(1, 2);
-
     cracks.setTexture(tex_cracks);
     cracks.setScale(1, 1);
 
@@ -841,18 +820,18 @@ void initializeObject()
     boom.setScale(1, 2);
 
     interface.setTexture(tex_interface);
-    interface.setScale(static_cast<float>(1920) / tex_interface.getSize().x,
-        static_cast<float>(1080) / tex_interface.getSize().y);
+    interface.setScale(static_cast<float>(WIDTH) / tex_interface.getSize().x,
+        static_cast<float>(HEIGHT) / tex_interface.getSize().y);
     interface.setPosition(0, 0);
 
     instructions.setTexture(tex_instructions);
-    instructions.setScale(static_cast<float>(1920) / tex_instructions.getSize().x,
-        static_cast<float>(1080) / tex_instructions.getSize().y);
+    instructions.setScale(static_cast<float>(WIDTH) / tex_instructions.getSize().x,
+        static_cast<float>(HEIGHT) / tex_instructions.getSize().y);
     instructions.setPosition(0, 0);
 
     credits.setTexture(tex_credits);
-    credits.setScale(static_cast<float>(1920) / tex_credits.getSize().x,
-        static_cast<float>(1080) / tex_credits.getSize().y);
+    credits.setScale(static_cast<float>(WIDTH) / tex_credits.getSize().x,
+        static_cast<float>(HEIGHT) / tex_credits.getSize().y);
     credits.setPosition(0, 0);
 
     backgrounds.push_back(Background(tex_background, 1));
@@ -877,8 +856,8 @@ void initializeObject()
     barriers[1] = new Barrier(tex_barrier2, 2, 2.5f, 1.5f);
 
     thankyou.setTexture(tex_thankyou);
-    thankyou.setScale(static_cast<float>(1920) / tex_interface.getSize().x + .5,
-        static_cast<float>(1080) / tex_interface.getSize().y + .5);
+    thankyou.setScale(static_cast<float>(WIDTH) / tex_interface.getSize().x + .5,
+        static_cast<float>(HEIGHT) / tex_interface.getSize().y + .5);
     thankyou.setPosition(0, 0);
 }
 
@@ -895,25 +874,24 @@ void reset(Players& player, vector<BLOCKS>& blocksList, Text& Score, bool& viewp
         barriers[i]->spawned = false;
     }
 
+    widerBlocksActive = false;
+    win = false;
+    viewpaused = false;
+    isGround = true;
     showSweet = false;
     showhurryUp = false;
     showBoom = false;
     showHighScore = false;
+    highScoreShownThisGame = false;
     highScoreTime = 0;
     boomTime = 0;
     sweetTime = 0.0f;
     hurryUpTime = 0.0f;
-    highScoreShownThisSession = false; // Reset to allow high score sprite in new session
-
-    isGameOver = false;
-    win = false;
-    viewpaused = false;
-    isGround = true;
     clockFill = 0.0f;
+
     nonIntersectedBlocks = 0;
     lastBlockIndex = -1;
     currentBlock = nullptr;
-    widerBlocksActive = false;
 
     // Reset player state
     player.velocity_x = 0.0f;
@@ -964,8 +942,8 @@ void reset(Players& player, vector<BLOCKS>& blocksList, Text& Score, bool& viewp
 
     // Reset view
     view.setCenter(Vector2f(960, 540));
-    view.setSize(1920, 1080);
-    adjustViewAspectRatio(1920.0f / 1080.0f);
+    view.setSize(WIDTH, HEIGHT);
+    adjustViewAspectRatio(WIDTH / HEIGHT);
     window.setView(view);
 
     // Reset ground and walls
@@ -993,6 +971,7 @@ void reset(Players& player, vector<BLOCKS>& blocksList, Text& Score, bool& viewp
     sound_widerBlocks.stop();
     sound_bomb.stop();
     sound_spark.stop();
+    sound_highScore.stop();
 }
 
 void adjustVolume(int& soundsVolume)
@@ -1014,6 +993,7 @@ void adjustVolume(int& soundsVolume)
     sound_bomb.setVolume(soundsVolume);
     sound_spark.setVolume(soundsVolume);
     sound_hurryUp.setVolume(soundsVolume);
+    sound_highScore.setVolume(soundsVolume);
 }
 
 bool soundOptions(Font font)
@@ -1162,7 +1142,7 @@ bool soundOptions(Font font)
             }
         }
 
-        window.draw(pause_menu);
+        window.draw(menu);
         window.draw(soundsSliderBar);
         window.draw(soundsSliderKnob);
         window.draw(musicSliderBar);
@@ -1177,7 +1157,7 @@ bool soundOptions(Font font)
     return false;
 }
 
-bool startMenu(Font font, Text text_start, Text text_sound, Text text_highscore, Text text_exit, Clock& Timer)
+bool startMenu(Font font, Text text_start, Text text_sound, Text text_highscore, Text text_exit, Clock& Timer, Clock& rotation)
 {
     int menuSelection = 0;
     bool isPressed = false, showHighscoreMenu = false, showInstructions = false, showCredits = false;
@@ -1185,7 +1165,7 @@ bool startMenu(Font font, Text text_start, Text text_sound, Text text_highscore,
     hand.setPosition(1000, 670);
 
     Font nameFont;
-    nameFont.loadFromFile("Arial.ttf");
+    nameFont.loadFromFile("Fonts//Arial.ttf");
 
     Text displayName("", nameFont);
     displayName.setCharacterSize(35);
@@ -1224,6 +1204,7 @@ bool startMenu(Font font, Text text_start, Text text_sound, Text text_highscore,
 
             if (showWelcome)
             {
+                background_music.stop();
                 window.clear();
                 window.draw(welcome);
                 window.display();
@@ -1256,6 +1237,7 @@ bool startMenu(Font font, Text text_start, Text text_sound, Text text_highscore,
 
             if (!showStartMenu)
             {
+                background_music.play();
                 if (event.type == Event::TextEntered)
                 {
                     if (event.text.unicode == '\b' && !userName.empty())
@@ -1320,7 +1302,7 @@ bool startMenu(Font font, Text text_start, Text text_sound, Text text_highscore,
 
                         if (menuSelection == 1)
                         {
-                            pause_menu.setPosition(500, 200);
+                            menu.setPosition(500, 200);
                             soundOptions(font);
                             hand.setPosition(1000, 660 + 60 * menuSelection);
                         }
@@ -1342,6 +1324,7 @@ bool startMenu(Font font, Text text_start, Text text_sound, Text text_highscore,
 
                         else if (menuSelection == 5)
                         {
+                            background_music.stop();
                             window.clear();
                             sound_bye.play();
                             window.draw(thankyou);
@@ -1451,19 +1434,19 @@ bool startMenu(Font font, Text text_start, Text text_sound, Text text_highscore,
             text_highscore.setOutlineThickness(menuSelection == 2 ? 5 : 0);
             text_highscore.setPosition(1082, 780);
 
-            Text text_credit("INSTRUCTIONS", font);
-            text_credit.setCharacterSize(40);
-            text_credit.setFillColor(menuSelection == 3 ? Color::Red : Color::Black);
-            text_credit.setOutlineColor(menuSelection == 3 ? Color::Yellow : Color::Transparent);
-            text_credit.setOutlineThickness(menuSelection == 3 ? 5 : 0);
-            text_credit.setPosition(1082, 835);
-
-            Text text_instructions("CREDIT", font);
+            Text text_instructions("INSTRUCTIONS", font);
             text_instructions.setCharacterSize(40);
-            text_instructions.setFillColor(menuSelection == 4 ? Color::Red : Color::Black);
-            text_instructions.setOutlineColor(menuSelection == 4 ? Color::Yellow : Color::Transparent);
-            text_instructions.setOutlineThickness(menuSelection == 4 ? 5 : 0);
-            text_instructions.setPosition(1082, 890);
+            text_instructions.setFillColor(menuSelection == 3 ? Color::Red : Color::Black);
+            text_instructions.setOutlineColor(menuSelection == 3 ? Color::Yellow : Color::Transparent);
+            text_instructions.setOutlineThickness(menuSelection == 3 ? 5 : 0);
+            text_instructions.setPosition(1082, 835);
+
+            Text text_credits("CREDITS", font);
+            text_credits.setCharacterSize(40);
+            text_credits.setFillColor(menuSelection == 4 ? Color::Red : Color::Black);
+            text_credits.setOutlineColor(menuSelection == 4 ? Color::Yellow : Color::Transparent);
+            text_credits.setOutlineThickness(menuSelection == 4 ? 5 : 0);
+            text_credits.setPosition(1082, 890);
 
             text_exit.setFillColor(menuSelection == 5 ? Color::Red : Color::Black);
             text_exit.setOutlineColor(menuSelection == 5 ? Color::Yellow : Color::Transparent);
@@ -1477,7 +1460,7 @@ bool startMenu(Font font, Text text_start, Text text_sound, Text text_highscore,
             window.draw(text_sound);
             window.draw(text_highscore);
             window.draw(text_instructions);
-            window.draw(text_credit);
+            window.draw(text_credits);
             window.draw(text_exit);
             window.draw(hand);
             heads();
@@ -1502,7 +1485,7 @@ bool pauseMenu(Players& player, Font font, Text text_sound, Text text_exit, Text
     int menuSelection = 0;
     bool isPressed = false;
 
-    pause_menu.setPosition(500, 200);
+    menu.setPosition(500, 200);
     hand.setPosition(600, 320);
 
     Text text_resume("RESUME", font);
@@ -1609,7 +1592,7 @@ bool pauseMenu(Players& player, Font font, Text text_sound, Text text_exit, Text
             }
         }
 
-        window.draw(pause_menu);
+        window.draw(menu);
         window.draw(text_resume);
         window.draw(text_play_again);
         window.draw(text_sound);
@@ -1626,7 +1609,7 @@ bool gameOver(Players& player, Font font, Text text_play_again, Text text_exit, 
     bool isPressed = false;
 
     hand.setPosition(700, 650);
-    pause_menu.setPosition(500, 300);
+    menu.setPosition(500, 300);
 
     View gameView = window.getView();
 
@@ -1737,7 +1720,7 @@ bool gameOver(Players& player, Font font, Text text_play_again, Text text_exit, 
         window.draw(player.sprite);
         window.setView(window.getDefaultView());
         window.draw(gameover);
-        window.draw(pause_menu);
+        window.draw(menu);
         window.draw(text_play_again);
         window.draw(text_exit);
         window.draw(Score);
@@ -1753,21 +1736,22 @@ bool winMenu(Players& player, Font font, Text text_play_again, Text text_exit, v
 {
     sound_winner.play();
     sound_cheer.play();
+
     int menuSelection = 0;
     bool isPressed = false;
 
     View gameView = window.getView();
 
     hand.setPosition(700, 650);
-    pause_menu.setPosition(500, 300);
+    menu.setPosition(500, 300);
     newstage.setPosition(0, -550);
 
     Text Floor("Floors: " + to_string(floors), font);
     Floor.setCharacterSize(60);
     Floor.setFillColor(Color::White);
 
-    updateOrAddUserScore(userName, score); // Update score
-    saveUserData(); // Save to file
+    updateOrAddUserScore(userName, score);
+    saveUserData();
 
     while (window.isOpen())
     {
@@ -1858,7 +1842,7 @@ bool winMenu(Players& player, Font font, Text text_play_again, Text text_exit, v
         window.draw(player.sprite);
         window.setView(window.getDefaultView());
         window.draw(winner);
-        window.draw(pause_menu);
+        window.draw(menu);
         window.draw(text_play_again);
         window.draw(text_exit);
         window.draw(Score);
@@ -1872,11 +1856,10 @@ bool winMenu(Players& player, Font font, Text text_play_again, Text text_exit, v
     return false;
 }
 
-void featureCollision(vector<BLOCKS>& blocksList, Players& player, Text& Score, Text& text_skipped, Font& font, Text& text_play_again, Text& text_exit, Text& text_start, Text& text_sound, Text& text_highscore, bool& showSuperJump, Text& timerText, bool& viewpaused, bool win, Clock& rotation, Clock& viewtimer, Clock& Timer, RectangleShape& OclockFill, vector<Feature>& featuresList)
+void featureCollision(vector<BLOCKS>& blocksList, Players& player, Text& Score, Text& text_skipped, Font& font, Text& text_play_again, Text& text_exit, Text& text_start, Text& text_sound, Text& text_highscore, Text& timerText, bool& viewpaused, bool win, Clock& rotation, Clock& viewtimer, Clock& Timer, RectangleShape& OclockFill, vector<Feature>& featuresList)
 {
-    for (auto it = featuresList.begin(); it != featuresList.end(); )
+    for (auto& feature : featuresList)
     {
-        auto& feature = *it;
         if (feature.active && player.sprite.getGlobalBounds().intersects(feature.sprite.getGlobalBounds()))
         {
             feature.active = false;
@@ -1886,22 +1869,22 @@ void featureCollision(vector<BLOCKS>& blocksList, Players& player, Text& Score, 
                 showBoom = true;
                 boomPosition = feature.sprite.getPosition();
                 boomTime = 0.0f;
-                blocksList.clear(); // Clear all blocks
-                cracks.setPosition(boomPosition.x, boomPosition.y - 50); // Position cracks slightly above boom
-                cracks.setScale(1.5f, 1.5f); // Slightly larger cracks
+                blocksList.clear();
+                cracks.setPosition(boomPosition.x, boomPosition.y - 50);
+                cracks.setScale(1.5f, 1.5f);
             }
 
             else if (feature.type == "superJump")
             {
                 player.hasSuperJump = true;
-                showSuperJump = true;
                 sound_superJump.play();
             }
 
             else if (feature.type == "extraLife")
             {
                 sound_extraLife.play();
-                if (lives < max_lives) lives++;
+                if (lives < max_lives)
+                    lives++;
             }
 
             else if (feature.type == "loseLife")
@@ -1914,13 +1897,11 @@ void featureCollision(vector<BLOCKS>& blocksList, Players& player, Text& Score, 
 
                 else
                 {
-                    it = featuresList.erase(it);
-
                     sound_gameover.play();
                     bool resumeGame = gameOver(player, font, text_play_again, text_exit, blocksList, Score, timerText, viewpaused, win, rotation, viewtimer, Timer, OclockFill, featuresList);
                     if (!resumeGame)
                     {
-                        startMenu(font, text_start, text_sound, text_highscore, text_exit, Timer);
+                        startMenu(font, text_start, text_sound, text_highscore, text_exit, Timer, rotation);
                     }
                     win = false;
                 }
@@ -1942,17 +1923,13 @@ void featureCollision(vector<BLOCKS>& blocksList, Players& player, Text& Score, 
                 }
             }
         }
-
-        else
-        {
-            ++it;
-        }
     }
 }
 
 void barrierCollision(vector<BLOCKS>& blocksList, Players& player)
 {
     int currentBlockIndex = -1;
+
     for (int i = 0; i < NUM_BARRIERS; ++i)
     {
         Barrier* barrier = barriers[i];
@@ -1996,12 +1973,14 @@ void barrierCollision(vector<BLOCKS>& blocksList, Players& player)
         {
             if (i == 0 && currentLevel == 1)
             {
+                sound_cheer.play();
                 currentLevel = 2;
                 transitionClock.restart();
             }
 
             else if (i == 1 && currentLevel == 2)
             {
+                sound_cheer.play();
                 currentLevel = 3;
                 transitionClock.restart();
             }
@@ -2009,7 +1988,7 @@ void barrierCollision(vector<BLOCKS>& blocksList, Players& player)
     }
 }
 
-void blocksCollision(vector<BLOCKS>& blocksList, Players& player, Text& Score, Text& text_skipped, Font& font, Text& text_play_again, Text& text_exit, Text& text_start, Text& text_sound, Text& text_highscore, bool& showSuperJump, Text& timerText, bool& viewpaused, bool win, Clock& rotation, Clock& viewtimer, Clock& Timer, vector<Feature>& featuresList)
+void blocksCollision(vector<BLOCKS>& blocksList, Players& player, Text& Score, Text& text_skipped, Font& font, Text& text_play_again, Text& text_exit, Text& text_start, Text& text_sound, Text& text_highscore,  Text& timerText, bool& viewpaused, bool win, Clock& rotation, Clock& viewtimer, Clock& Timer, vector<Feature>& featuresList)
 {
     static int blockLandingCount = 0; // Tracks number of block landings
     static int targetBlockCount = 0;  // Random number of blocks before next bomb
@@ -2156,14 +2135,13 @@ void blocksCollision(vector<BLOCKS>& blocksList, Players& player, Text& Score, T
     }
 }
 
-void drawTransitionEffect(Font& font, Vector2f camPos, int currentLevel, float deltaTime, Clock& transitionClock, Barrier* barrier)
+void drawTransitionEffect(Font font, Vector2f camPos, int currentLevel, float deltaTime, Clock& transitionClock, Barrier* barrier)
 {
     float transitionTime = transitionClock.getElapsedTime().asSeconds();
     const float transitionDuration = 1.5f;
 
     if (transitionTime < transitionDuration)
     {
-        sound_cheer.play();
         float startY = barrier->sprite.getPosition().y - 500;
         float endY = startY + 600.0f;
         newstage.setPosition(0, startY + (transitionTime / transitionDuration) * (endY - startY));
@@ -2181,7 +2159,7 @@ void drawTransitionEffect(Font& font, Vector2f camPos, int currentLevel, float d
 
 }
 
-void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font font, Text& timerText, Text& text_skipped, float& deltatime, Clock& rotation, Clock& Timer, RectangleShape& OclockFill, bool& showSuperJump, vector<Feature>& featuresList, bool& viewpaused, bool win, Clock& viewtimer, Text text_play_again, Text text_exit, Text text_start, Text text_sound, Text text_highscore)
+void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font font, Text& timerText, Text& text_skipped, float& deltatime, Clock& rotation, Clock& Timer, RectangleShape& OclockFill, vector<Feature>& featuresList, bool& viewpaused, bool win, Clock& viewtimer, Text text_play_again, Text text_exit, Text text_start, Text text_sound, Text text_highscore)
 {
     window.setView(view);
 
@@ -2194,7 +2172,7 @@ void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font font, T
     float rotationPeriod = 60.0f;
     float angle = (elapsedTime / rotationPeriod) * 360.0f;
 
-    clockhand.setRotation(angle);
+    clockHand.setRotation(angle);
 
     int time = Timer.getElapsedTime().asSeconds();
     int minutes = time / 60;
@@ -2203,9 +2181,11 @@ void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font font, T
     timerText.setPosition(200 + camPos.x - WIDTH / 2, camPos.y - HEIGHT / 2 + 950);
     string timeString = "Time: ";
     timerText.setFillColor(Color::White);
+
     if (minutes < 10) timeString += "0";
     timeString += to_string(minutes);
     timeString += ":";
+
     if (seconds < 10) timeString += "0";
     timeString += to_string(seconds);
     timerText.setString(timeString);
@@ -2338,10 +2318,15 @@ void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font font, T
 
         window.draw(sweet);
     }
+
     updateOrAddUserScore(userName, score);
 
     if (showHighScore)
     {
+        showSweet = false;
+        sound_sweet.stop();
+        showhurryUp = false;
+        sound_hurryUp.stop();
         highScoreTime += deltatime;
         Vector2f pos = highScore.getPosition();
         pos.y -= 500.0f * deltatime;
@@ -2359,17 +2344,11 @@ void draw(Players& player, vector<BLOCKS>& blocksList, Text& Score, Font font, T
 
         window.draw(highScore);
     }
-    if (showStars)
-    {
-        starsfall.setPosition(starsPos);
-        starsfall.setScale(0.7f, 0.7f);
-        window.draw(starsfall);
-    }
 
     window.setView(window.getDefaultView());
-    window.draw(clock1);
+    window.draw(wallClock);
     window.draw(star);
-    window.draw(clockhand);
+    window.draw(clockHand);
     OclockFill.setSize(Vector2f(26, 152 * clockFill));
     OclockFill.setPosition(49, 380 - 152 * clockFill);
     window.draw(OclockFill);
@@ -2383,11 +2362,11 @@ int main()
     initializeObject();
     loadUserData();
 
-    //background_music.setLoop(true);
-    //background_music.play();
+    background_music.setLoop(true);
+    background_music.play();
 
     Font font;
-    font.loadFromFile("RushDriver-Italic.otf");
+    font.loadFromFile("Fonts//RushDriver-Italic.otf");
 
     Text text_start("START", font);
     text_start.setCharacterSize(40);
@@ -2421,7 +2400,7 @@ int main()
 
     Text text_skipped;
     text_skipped.setFont(font);
-    text_skipped.setCharacterSize(30);
+    text_skipped.setCharacterSize(31);
     text_skipped.setFillColor(Color::Black);
     text_skipped.setPosition(45, 390);
 
@@ -2429,10 +2408,10 @@ int main()
     OclockFill.setSize(Vector2f(26, 152));
     OclockFill.setPosition(49, 380);
     OclockFill.setFillColor(Color::Red);
-    Clock viewtimer, Timer;
+    Clock viewtimer, Timer, rotation;
 
     bool viewpaused = false, win = false, showSuperJump = false;
-    bool start_game = startMenu(font, text_start, text_sound, text_highscore, text_exit, Timer);
+    bool start_game = startMenu(font, text_start, text_sound, text_highscore, text_exit, Timer, rotation);
     const int max_levels = 3;
 
     if (start_game)
@@ -2450,9 +2429,9 @@ int main()
         generationBlocks(blocksList, player, 2);
         generationBlocks(blocksList, player, 3);
 
-        view.setSize(1920, 1080);
+        view.setSize(WIDTH,HEIGHT);
         view.setCenter(Vector2f(960, 520));
-        adjustViewAspectRatio(1920.0f / 1080.0f);
+        adjustViewAspectRatio(WIDTH/ HEIGHT);
         window.setView(view);
 
         while (window.isOpen())
@@ -2461,7 +2440,7 @@ int main()
             if (!viewpaused && player.sprite.getPosition().y < HEIGHT / 7)
             {
                 view_movement(deltatime, currentLevel);
-                adjustViewAspectRatio(1920.0f / 1080.0f);
+                adjustViewAspectRatio(WIDTH / HEIGHT);
                 generationFeatures(blocksList, player, Score, featuresList, currentLevel);
                 window.setView(view);
             }
@@ -2488,7 +2467,7 @@ int main()
                 bool resumeGame = pauseMenu(player, font, text_sound, text_exit, text_start, blocksList, text_play_again, Score, viewpaused, win, rotation, viewtimer, Timer, OclockFill, featuresList);
                 if (!resumeGame)
                 {
-                    startMenu(font, text_start, text_sound, text_highscore, text_exit, Timer);
+                    startMenu(font, text_start, text_sound, text_highscore, text_exit, Timer, rotation);
                 }
             }
 
@@ -2519,7 +2498,7 @@ int main()
                     showHighScore = false;
                     player.sprite.setTextureRect(IntRect(0, 0, 38, 71));
                     view.setCenter(Vector2f(960, lastSafePosition.y + 100));
-                    adjustViewAspectRatio(1920.0f / 1080.0f);
+                    adjustViewAspectRatio(WIDTH / HEIGHT);
                     window.setView(view);
                     viewpaused = true;
                     viewtimer.restart();
@@ -2531,7 +2510,7 @@ int main()
                     bool resumeGame = gameOver(player, font, text_play_again, text_exit, blocksList, Score, timerText, viewpaused, win, rotation, viewtimer, Timer, OclockFill, featuresList);
                     if (!resumeGame)
                     {
-                        startMenu(font, text_start, text_sound, text_highscore, text_exit, Timer);
+                        startMenu(font, text_start, text_sound, text_highscore, text_exit, Timer, rotation);
                     }
                     win = false;
                 }
@@ -2567,8 +2546,9 @@ int main()
 
             // Collisions 
             barrierCollision(blocksList, player);
-            featureCollision(blocksList, player, Score, text_skipped, font, text_play_again, text_exit, text_start, text_sound, text_highscore, showSuperJump, timerText, viewpaused, win, rotation, viewtimer, Timer, OclockFill, featuresList);
-            blocksCollision(blocksList, player, Score, text_skipped, font, text_play_again, text_exit, text_start, text_sound, text_highscore, showSuperJump, timerText, viewpaused, win, rotation, viewtimer, Timer, featuresList);
+            featureCollision(blocksList, player, Score, text_skipped, font, text_play_again, text_exit, text_start, text_sound, text_highscore,  timerText, viewpaused, win, rotation, viewtimer, Timer, OclockFill, featuresList);
+            blocksCollision(blocksList, player, Score, text_skipped, font, text_play_again, text_exit, text_start, text_sound, text_highscore,  timerText, viewpaused, win, rotation, viewtimer, Timer, featuresList);
+            
             clocktimer(deltatime);
 
             if (!viewpaused)
@@ -2595,7 +2575,7 @@ int main()
                             if (!resumeGame)
                             {
                                 reset(player, blocksList, Score, viewpaused, win, rotation, viewtimer, Timer, OclockFill, featuresList);
-                                startMenu(font, text_start, text_sound, text_highscore, text_exit, Timer);
+                                startMenu(font, text_start, text_sound, text_highscore, text_exit, Timer, rotation);
                             }
                             else
                             {
@@ -2613,7 +2593,7 @@ int main()
             player.handleMovement(deltatime);
 
             window.clear();
-            draw(player, blocksList, Score, font, timerText, text_skipped, deltatime, rotation, Timer, OclockFill, showSuperJump, featuresList,
+            draw(player, blocksList, Score, font, timerText, text_skipped, deltatime, rotation, Timer, OclockFill,  featuresList,
                 viewpaused, win, viewtimer, text_play_again, text_exit, text_start, text_sound, text_highscore);
 
             window.display();
