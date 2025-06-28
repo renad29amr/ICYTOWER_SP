@@ -7,6 +7,7 @@ using namespace sf;
 Clock transitionClock;
 static Clock FillTime;
 float clockFill = 0.0f;
+
 void clocktimer(float deltatime)
 {
     static const float decayDuration = 10.0f;
