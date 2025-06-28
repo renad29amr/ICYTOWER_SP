@@ -3,6 +3,8 @@
 
 using namespace sf;
 
+const float VIEW_SPEED_1 = -580, VIEW_SPEED_2 = -540, VIEW_SPEED_3 = -500;
+
 extern RenderWindow window;
 extern View view;
 
@@ -30,4 +32,10 @@ void adjustViewAspectRatio( float desiredAspectRatio)
 
     view.setViewport(viewport);
     window.setView(view);
+}
+
+void view_movement(float& deltatime, int level)
+{
+    int view_speed = (level == 1) ? VIEW_SPEED_1 : (level == 2) ? VIEW_SPEED_2 : VIEW_SPEED_3;
+    view.move(0, view_speed * deltatime);
 }
