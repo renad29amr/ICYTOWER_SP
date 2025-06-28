@@ -3,8 +3,11 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <SFML/Graphics.hpp>
 #include <algorithm>
+
 using namespace std;
+using namespace sf;
 
 extern string userName;
 
@@ -15,8 +18,13 @@ struct User
 };
 
 const int MAX_USERS = 16;
-extern User user_arr[MAX_USERS];
-extern int user_count;
+User user_arr[MAX_USERS];
+int user_count;
+extern bool showHighScore, highScoreShownThisGame;
+extern float highScoreTime;
+extern View view;
+extern Sprite highScore;
+extern Sound sound_highScore;
 
 void loadUserData()
 {
@@ -40,6 +48,7 @@ void loadUserData()
                 user_arr[user_count] = { name, score };
                 user_count++;
             }
+
             catch (const exception& e)
             {
                 continue;
@@ -52,9 +61,9 @@ void loadUserData()
 void saveUserData()
 {
     sort(user_arr, user_arr + user_count, [](const User& a, const User& b)
-        {
-            return a.user_score > b.user_score;
-        });
+    {
+        return a.user_score > b.user_score;
+    });
 
     ofstream myFile("user_data.txt");
     for (int i = 0; i < user_count; i++)
@@ -73,7 +82,18 @@ void updateOrAddUserScore(const string& name, int score)
         if (user_arr[i].user_name == name)
         {
             userExists = true;
-            if (score > user_arr[i].user_score)
+            if (score > user_arr[i].user_score && !highScoreShownThisGame)
+            {
+                showHighScore = true;
+                sound_highScore.play();
+                user_arr[i].user_score = score; 
+                highScoreTime = 0.0f;
+                highScore.setPosition(view.getCenter().x + 800, view.getCenter().y - 80);
+                highScore.setScale(0.5f, 0.5f);
+                highScoreShownThisGame = true; 
+            }
+
+            else if (score > user_arr[i].user_score)
             {
                 user_arr[i].user_score = score;
             }
@@ -81,10 +101,12 @@ void updateOrAddUserScore(const string& name, int score)
         }
     }
 
-    if (!userExists && user_count < MAX_USERS)
+    if (!userExists && user_count < MAX_USERS && !highScoreShownThisGame)
     {
+        showHighScore = false;
         user_arr[user_count] = { name, score };
         user_count++;
+        highScoreShownThisGame = true;
     }
 }
 
